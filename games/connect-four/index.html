@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Connect Four 🟡</title>
+  <link rel="stylesheet" href="../../css/styles.css" />
+  <style>
+    #cf-board {
+      background: #1a73e8;
+      border-radius: 16px;
+      padding: 8px;
+      box-shadow: var(--shadow);
+      display: inline-block;
+    }
+
+    .cf-grid {
+      display: grid;
+      gap: 6px;
+    }
+
+    .cf-col-btn {
+      background: rgba(255,255,255,.25);
+      border: none;
+      border-radius: 10px 10px 0 0;
+      color: #fff;
+      font-size: 1.3rem;
+      cursor: pointer;
+      padding: 6px 0;
+      min-height: 44px;
+      transition: background var(--transition);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .cf-col-btn:hover {
+      background: rgba(255,255,255,.4);
+    }
+
+    .cf-cell {
+      border-radius: 50%;
+      background: #0d5bbb;
+      box-shadow: inset 0 3px 8px rgba(0,0,0,.35);
+      aspect-ratio: 1;
+    }
+
+    .cf-cell.p1 {
+      background: radial-gradient(circle at 35% 35%, #ffeb3b, #f9a825);
+      box-shadow: inset 0 -3px 6px rgba(0,0,0,.2), 0 2px 6px rgba(0,0,0,.25);
+    }
+
+    .cf-cell.p2 {
+      background: radial-gradient(circle at 35% 35%, #ff7043, #c62828);
+      box-shadow: inset 0 -3px 6px rgba(0,0,0,.2), 0 2px 6px rgba(0,0,0,.25);
+    }
+
+    .cf-cell.win-cell {
+      box-shadow: 0 0 0 3px #fff, inset 0 -3px 6px rgba(0,0,0,.2);
+    }
+
+    .drop-arrow { font-size: 1.4rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="back-link" href="../../">← Back</a>
+    <h1>🟡 Connect Four 🔴</h1>
+    <p>Drop discs — first to get 4 in a row wins!</p>
+  </header>
+
+  <main>
+    <div class="game-wrapper">
+
+      <!-- Scoreboard -->
+      <div class="scoreboard">
+        <div class="score-box active" id="cf-score-p1">
+          <div class="player-label p1-label" id="cf-label-p1">Player 1 🟡</div>
+          <div class="player-score" id="cf-pts-p1">0</div>
+        </div>
+        <div class="score-box">
+          <div class="player-label">Draws</div>
+          <div class="player-score" id="cf-pts-draw">0</div>
+        </div>
+        <div class="score-box" id="cf-score-p2">
+          <div class="player-label p2-label" id="cf-label-p2">Player 2 🔴</div>
+          <div class="player-score" id="cf-pts-p2">0</div>
+        </div>
+      </div>
+
+      <!-- Player names -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <input id="cf-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1"
+               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-primary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+        <input id="cf-name-p2" type="text" maxlength="12" placeholder="Player 2" value="Player 2"
+               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-secondary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+      </div>
+
+      <!-- Status -->
+      <div class="status-bar" id="cf-status">Player 1's turn 🟡</div>
+
+      <!-- Board -->
+      <div id="cf-board">
+        <!-- column drop buttons -->
+        <div id="cf-col-btns" style="display:grid;gap:6px;margin-bottom:6px;"></div>
+        <!-- grid cells -->
+        <div class="cf-grid" id="cf-grid"></div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="btn btn-primary"   id="cf-btn-new">New Game</button>
+        <button class="btn btn-secondary" id="cf-btn-reset">Reset Scores</button>
+      </div>
+
+    </div>
+
+    <!-- Win overlay -->
+    <div class="win-overlay hidden" id="cf-overlay">
+      <div class="win-card">
+        <div class="big-emoji" id="cf-win-emoji">🎉</div>
+        <h2 id="cf-win-msg">Player 1 wins!</h2>
+        <button class="btn btn-primary" id="cf-btn-again">Play Again</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const ROWS = 6, COLS = 7, WIN = 4;
+
+    // grid[row][col]: 0=empty, 1=p1, 2=p2
+    let grid, currentPlayer, gameOver;
+    let scores = { 1: 0, 2: 0, draw: 0 };
+    let winCells = [];
+
+    const statusEl  = document.getElementById('cf-status');
+    const overlay   = document.getElementById('cf-overlay');
+    const winEmoji  = document.getElementById('cf-win-emoji');
+    const winMsg    = document.getElementById('cf-win-msg');
+    const cfGrid    = document.getElementById('cf-grid');
+    const colBtns   = document.getElementById('cf-col-btns');
+    const nameP1El  = document.getElementById('cf-name-p1');
+    const nameP2El  = document.getElementById('cf-name-p2');
+    const labelP1El = document.getElementById('cf-label-p1');
+    const labelP2El = document.getElementById('cf-label-p2');
+    const scoreP1El = document.getElementById('cf-score-p1');
+    const scoreP2El = document.getElementById('cf-score-p2');
+
+    function p1() { return nameP1El.value.trim() || 'Player 1'; }
+    function p2() { return nameP2El.value.trim() || 'Player 2'; }
+    function nameOf(p) { return p === 1 ? p1() : p2(); }
+
+    [nameP1El, nameP2El].forEach(el => el.addEventListener('input', updateLabels));
+    function updateLabels() {
+      labelP1El.textContent = p1() + ' 🟡';
+      labelP2El.textContent = p2() + ' 🔴';
+    }
+
+    function startGame() {
+      grid = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+      currentPlayer = 1;
+      gameOver = false;
+      winCells = [];
+      overlay.classList.add('hidden');
+      renderBoard();
+      updateStatus();
+      updateHighlight();
+    }
+
+    /* ---- Cell size ---- */
+    function cellSize() {
+      const vw = Math.min(window.innerWidth, 520);
+      return Math.floor((vw - 48) / COLS);
+    }
+
+    function renderBoard() {
+      const cs = cellSize();
+
+      // Col drop buttons
+      colBtns.style.gridTemplateColumns = `repeat(${COLS}, ${cs}px)`;
+      colBtns.innerHTML = '';
+      for (let c = 0; c < COLS; c++) {
+        const btn = document.createElement('button');
+        btn.className = 'cf-col-btn';
+        btn.style.width = cs + 'px';
+        btn.innerHTML = `<span class="drop-arrow">▼</span>`;
+        btn.setAttribute('aria-label', `Drop in column ${c + 1}`);
+        btn.addEventListener('click', () => dropDisc(c));
+        colBtns.appendChild(btn);
+      }
+
+      // Grid cells
+      cfGrid.style.gridTemplateColumns = `repeat(${COLS}, ${cs}px)`;
+      cfGrid.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        for (let c = 0; c < COLS; c++) {
+          const cell = document.createElement('div');
+          const p = grid[r][c];
+          const isWin = winCells.some(([wr, wc]) => wr === r && wc === c);
+          cell.className = 'cf-cell'
+            + (p === 1 ? ' p1' : p === 2 ? ' p2' : '')
+            + (isWin ? ' win-cell' : '');
+          cell.style.width  = cs + 'px';
+          cell.style.height = cs + 'px';
+          cfGrid.appendChild(cell);
+        }
+      }
+    }
+
+    function dropDisc(col) {
+      if (gameOver) return;
+      // Find lowest empty row in column
+      let row = -1;
+      for (let r = ROWS - 1; r >= 0; r--) {
+        if (grid[r][col] === 0) { row = r; break; }
+      }
+      if (row === -1) return; // column full
+
+      grid[row][col] = currentPlayer;
+
+      const line = checkWin(row, col);
+      if (line) {
+        gameOver = true;
+        winCells = line;
+        scores[currentPlayer]++;
+        renderBoard();
+        showWin(currentPlayer);
+        updateScore();
+        return;
+      }
+
+      if (grid[0].every(v => v !== 0)) {
+        gameOver = true;
+        scores.draw++;
+        renderBoard();
+        showDraw();
+        updateScore();
+        return;
+      }
+
+      currentPlayer = currentPlayer === 1 ? 2 : 1;
+      renderBoard();
+      updateStatus();
+      updateHighlight();
+    }
+
+    function checkWin(row, col) {
+      const p = grid[row][col];
+      const dirs = [[0,1],[1,0],[1,1],[1,-1]];
+      for (const [dr, dc] of dirs) {
+        let cells = [[row, col]];
+        for (let d of [-1, 1]) {
+          let r = row + dr * d, c = col + dc * d;
+          while (r >= 0 && r < ROWS && c >= 0 && c < COLS && grid[r][c] === p) {
+            cells.push([r, c]);
+            r += dr * d; c += dc * d;
+          }
+        }
+        if (cells.length >= WIN) return cells;
+      }
+      return null;
+    }
+
+    function updateStatus() {
+      const disc = currentPlayer === 1 ? '🟡' : '🔴';
+      statusEl.textContent = `${nameOf(currentPlayer)}'s turn ${disc}`;
+    }
+
+    function updateHighlight() {
+      scoreP1El.classList.toggle('active', currentPlayer === 1);
+      scoreP2El.classList.toggle('active', currentPlayer === 2);
+    }
+
+    function updateScore() {
+      document.getElementById('cf-pts-p1').textContent   = scores[1];
+      document.getElementById('cf-pts-p2').textContent   = scores[2];
+      document.getElementById('cf-pts-draw').textContent = scores.draw;
+      scoreP1El.classList.remove('active');
+      scoreP2El.classList.remove('active');
+    }
+
+    function showWin(p) {
+      winEmoji.textContent = p === 1 ? '🏆' : '🎉';
+      winMsg.textContent   = `${nameOf(p)} wins!`;
+      statusEl.textContent = `${nameOf(p)} wins! 🎉`;
+      overlay.classList.remove('hidden');
+    }
+
+    function showDraw() {
+      winEmoji.textContent = '🤝';
+      winMsg.textContent   = "It's a draw!";
+      statusEl.textContent = "It's a draw! 🤝";
+      overlay.classList.remove('hidden');
+    }
+
+    document.getElementById('cf-btn-new').addEventListener('click', startGame);
+    document.getElementById('cf-btn-reset').addEventListener('click', () => {
+      scores = { 1: 0, 2: 0, draw: 0 };
+      updateScore();
+      startGame();
+    });
+    document.getElementById('cf-btn-again').addEventListener('click', startGame);
+
+    window.addEventListener('resize', renderBoard);
+    startGame();
+  </script>
+</body>
+</html>

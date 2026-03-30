@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkers 🔴</title>
+  <link rel="stylesheet" href="../../css/styles.css" />
+  <style>
+    #ck-board {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      border: 4px solid #5a3a1a;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      touch-action: manipulation;
+    }
+
+    .ck-sq {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .ck-sq.light { background: #f0d9b5; }
+    .ck-sq.dark  { background: #b58863; }
+    .ck-sq.moveable { background: #aee571; cursor: pointer; }
+    .ck-sq.selected { background: #f6f669; }
+
+    .ck-piece {
+      width: 78%;
+      height: 78%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      box-shadow: 0 3px 6px rgba(0,0,0,.35);
+      transition: transform .1s;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .ck-piece.p1 {
+      background: radial-gradient(circle at 35% 30%, #ff8a80, #c62828);
+      border: 2px solid #7f0000;
+    }
+
+    .ck-piece.p2 {
+      background: radial-gradient(circle at 35% 30%, #9e9e9e, #212121);
+      border: 2px solid #000;
+    }
+
+    .ck-piece.king::after {
+      content: '👑';
+      font-size: .8em;
+      line-height: 1;
+    }
+
+    .ck-sq:active .ck-piece { transform: scale(.9); }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="back-link" href="../../">← Back</a>
+    <h1>🔴 Checkers ⚫</h1>
+    <p>Jump over your opponent's pieces to win!</p>
+  </header>
+
+  <main>
+    <div class="game-wrapper">
+
+      <!-- Scoreboard -->
+      <div class="scoreboard">
+        <div class="score-box active" id="ck-score-p1">
+          <div class="player-label p1-label" id="ck-label-p1">Player 1 🔴</div>
+          <div class="player-score" id="ck-pts-p1">0</div>
+        </div>
+        <div class="score-box" id="ck-score-p2">
+          <div class="player-label p2-label" id="ck-label-p2">Player 2 ⚫</div>
+          <div class="player-score" id="ck-pts-p2">0</div>
+        </div>
+      </div>
+
+      <!-- Names -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <input id="ck-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1"
+               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-primary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+        <input id="ck-name-p2" type="text" maxlength="12" placeholder="Player 2" value="Player 2"
+               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-secondary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+      </div>
+
+      <!-- Status -->
+      <div class="status-bar" id="ck-status">Player 1's turn 🔴</div>
+
+      <!-- Board -->
+      <div style="width:100%;max-width:480px;">
+        <div id="ck-board"></div>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="btn btn-primary"   id="ck-btn-new">New Game</button>
+        <button class="btn btn-secondary" id="ck-btn-reset">Reset Scores</button>
+      </div>
+
+      <!-- Rules hint -->
+      <div style="max-width:480px;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 18px;font-size:.88rem;color:var(--color-muted);">
+        <strong>Rules:</strong> Red moves up, Black moves down. Click a piece to select, then click a highlighted square to move.
+        Kings (👑) move both directions. Capture by jumping over opponents. Multiple jumps allowed in one turn if available.
+      </div>
+
+    </div>
+
+    <!-- Win overlay -->
+    <div class="win-overlay hidden" id="ck-overlay">
+      <div class="win-card">
+        <div class="big-emoji" id="ck-win-emoji">🎉</div>
+        <h2 id="ck-win-msg">Player 1 wins!</h2>
+        <button class="btn btn-primary" id="ck-btn-again">Play Again</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+  // Board is 8x8. Pieces only on dark squares.
+  // board[row][col]: null | { player: 1|2, king: bool }
+  // Player 1 = Red, starts bottom (rows 5-7), moves up (row decreases)
+  // Player 2 = Black, starts top (rows 0-2), moves down (row increases)
+
+  const SIZE = 8;
+  let board, currentPlayer, selected, mustJumpFrom, gameOver;
+  let scores = { 1: 0, 2: 0 };
+
+  const boardEl   = document.getElementById('ck-board');
+  const statusEl  = document.getElementById('ck-status');
+  const overlay   = document.getElementById('ck-overlay');
+  const winEmoji  = document.getElementById('ck-win-emoji');
+  const winMsg    = document.getElementById('ck-win-msg');
+  const nameP1El  = document.getElementById('ck-name-p1');
+  const nameP2El  = document.getElementById('ck-name-p2');
+  const labelP1El = document.getElementById('ck-label-p1');
+  const labelP2El = document.getElementById('ck-label-p2');
+  const scoreP1El = document.getElementById('ck-score-p1');
+  const scoreP2El = document.getElementById('ck-score-p2');
+
+  function p1() { return nameP1El.value.trim() || 'Player 1'; }
+  function p2() { return nameP2El.value.trim() || 'Player 2'; }
+  function nameOf(p) { return p === 1 ? p1() : p2(); }
+
+  [nameP1El, nameP2El].forEach(el => el.addEventListener('input', () => {
+    labelP1El.textContent = p1() + ' 🔴';
+    labelP2El.textContent = p2() + ' ⚫';
+  }));
+
+  function initBoard() {
+    board = Array.from({length: SIZE}, () => Array(SIZE).fill(null));
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        if (isDark(r, c)) {
+          if (r < 3) board[r][c] = { player: 2, king: false };
+          else if (r > 4) board[r][c] = { player: 1, king: false };
+        }
+      }
+    }
+  }
+
+  function isDark(r, c) { return (r + c) % 2 === 1; }
+
+  function startGame() {
+    initBoard();
+    currentPlayer = 1;
+    selected = null;
+    mustJumpFrom = null;
+    gameOver = false;
+    overlay.classList.add('hidden');
+    renderBoard();
+    updateStatus();
+    updateHighlight();
+  }
+
+  /* ---- Move logic ---- */
+  function getMoves(r, c, jumpsOnly = false) {
+    const piece = board[r][c];
+    if (!piece) return [];
+    const moves = [];
+    const dirs = [];
+    if (piece.player === 1 || piece.king) dirs.push([-1, -1], [-1, 1]); // up
+    if (piece.player === 2 || piece.king) dirs.push([1, -1],  [1, 1]);  // down
+
+    for (const [dr, dc] of dirs) {
+      const nr = r + dr, nc = c + dc;
+      if (!inBounds(nr, nc)) continue;
+      if (!board[nr][nc]) {
+        if (!jumpsOnly) moves.push({ type: 'move', to: [nr, nc], over: null });
+      } else if (board[nr][nc].player !== piece.player) {
+        const jr = nr + dr, jc = nc + dc;
+        if (inBounds(jr, jc) && !board[jr][jc]) {
+          moves.push({ type: 'jump', to: [jr, jc], over: [nr, nc] });
+        }
+      }
+    }
+    return moves;
+  }
+
+  function inBounds(r, c) { return r >= 0 && r < SIZE && c >= 0 && c < SIZE; }
+
+  function allMovesForPlayer(p, jumpsOnly = false) {
+    const all = [];
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        if (board[r][c]?.player === p)
+          getMoves(r, c, jumpsOnly).forEach(m => all.push({ r, c, ...m }));
+    return all;
+  }
+
+  function hasJumps(p) { return allMovesForPlayer(p, true).length > 0; }
+
+  /* ---- Render ---- */
+  function renderBoard() {
+    boardEl.innerHTML = '';
+    const vw = Math.min(window.innerWidth, 480);
+    const sqSize = Math.floor((vw - 32) / SIZE);
+
+    const jumpsAvail = hasJumps(currentPlayer);
+    let moveableSquares = new Set();
+
+    if (mustJumpFrom) {
+      const [mr, mc] = mustJumpFrom;
+      getMoves(mr, mc, true).forEach(m => moveableSquares.add(m.to.join(',')));
+    } else if (selected) {
+      const moves = getMoves(selected[0], selected[1], jumpsAvail);
+      moves.forEach(m => moveableSquares.add(m.to.join(',')));
+    }
+
+    for (let r = 0; r < SIZE; r++) {
+      for (let c = 0; c < SIZE; c++) {
+        const sq = document.createElement('div');
+        const dark = isDark(r, c);
+        const isSel  = selected && selected[0] === r && selected[1] === c;
+        const isMove = dark && moveableSquares.has(`${r},${c}`);
+
+        sq.className = 'ck-sq ' + (!dark ? 'light' : isSel ? 'selected' : isMove ? 'moveable' : 'dark');
+        sq.style.width  = sqSize + 'px';
+        sq.style.height = sqSize + 'px';
+
+        const piece = board[r][c];
+        if (piece) {
+          const pd = document.createElement('div');
+          pd.className = 'ck-piece p' + piece.player + (piece.king ? ' king' : '');
+          sq.appendChild(pd);
+        }
+
+        sq.addEventListener('click', () => handleSquareClick(r, c));
+        boardEl.appendChild(sq);
+      }
+    }
+
+    boardEl.style.gridTemplateColumns = `repeat(${SIZE}, ${sqSize}px)`;
+  }
+
+  function handleSquareClick(r, c) {
+    if (gameOver) return;
+
+    const piece = board[r][c];
+    const jumpsAvail = hasJumps(currentPlayer);
+    const activeFrom = mustJumpFrom || selected;
+
+    // Clicking own piece
+    if (piece && piece.player === currentPlayer) {
+      if (mustJumpFrom) return; // must continue jump chain
+      selected = [r, c];
+      renderBoard();
+      return;
+    }
+
+    // Clicking empty square — try to move
+    if (!piece && activeFrom) {
+      const [fr, fc] = activeFrom;
+      const moves = getMoves(fr, fc, jumpsAvail);
+      const move = moves.find(m => m.to[0] === r && m.to[1] === c);
+      if (move) {
+        applyMove(fr, fc, move);
+        return;
+      }
+    }
+
+    // Click empty non-moveable or opponent — deselect
+    if (!mustJumpFrom) { selected = null; renderBoard(); }
+  }
+
+  function applyMove(fr, fc, move) {
+    const piece = board[fr][fc];
+    board[move.to[0]][move.to[1]] = piece;
+    board[fr][fc] = null;
+
+    if (move.over) {
+      board[move.over[0]][move.over[1]] = null;
+    }
+
+    // King promotion
+    if (piece.player === 1 && move.to[0] === 0) piece.king = true;
+    if (piece.player === 2 && move.to[0] === SIZE - 1) piece.king = true;
+
+    // Multi-jump check
+    if (move.over) {
+      const furtherJumps = getMoves(move.to[0], move.to[1], true);
+      if (furtherJumps.length > 0) {
+        mustJumpFrom = move.to;
+        selected = move.to;
+        renderBoard();
+        return;
+      }
+    }
+
+    mustJumpFrom = null;
+    selected = null;
+
+    // Check win
+    const opponent = currentPlayer === 1 ? 2 : 1;
+    const oppMoves = allMovesForPlayer(opponent);
+    const oppPieces = countPieces(opponent);
+
+    if (oppPieces === 0 || oppMoves.length === 0) {
+      gameOver = true;
+      scores[currentPlayer]++;
+      renderBoard();
+      showWin(currentPlayer);
+      updateScore();
+      return;
+    }
+
+    currentPlayer = opponent;
+    renderBoard();
+    updateStatus();
+    updateHighlight();
+  }
+
+  function countPieces(p) {
+    let n = 0;
+    for (let r = 0; r < SIZE; r++)
+      for (let c = 0; c < SIZE; c++)
+        if (board[r][c]?.player === p) n++;
+    return n;
+  }
+
+  function updateStatus() {
+    const disc = currentPlayer === 1 ? '🔴' : '⚫';
+    const cnt1 = countPieces(1), cnt2 = countPieces(2);
+    statusEl.textContent = `${nameOf(currentPlayer)}'s turn ${disc} — Red: ${cnt1} pieces  Black: ${cnt2} pieces`;
+  }
+
+  function updateHighlight() {
+    scoreP1El.classList.toggle('active', currentPlayer === 1);
+    scoreP2El.classList.toggle('active', currentPlayer === 2);
+  }
+
+  function updateScore() {
+    document.getElementById('ck-pts-p1').textContent = scores[1];
+    document.getElementById('ck-pts-p2').textContent = scores[2];
+    scoreP1El.classList.remove('active');
+    scoreP2El.classList.remove('active');
+  }
+
+  function showWin(p) {
+    winEmoji.textContent = '🏆';
+    winMsg.textContent   = `${nameOf(p)} wins!`;
+    statusEl.textContent = `${nameOf(p)} wins! 🏆`;
+    overlay.classList.remove('hidden');
+  }
+
+  document.getElementById('ck-btn-new').addEventListener('click', startGame);
+  document.getElementById('ck-btn-reset').addEventListener('click', () => {
+    scores = { 1: 0, 2: 0 };
+    updateScore();
+    startGame();
+  });
+  document.getElementById('ck-btn-again').addEventListener('click', startGame);
+
+  window.addEventListener('resize', renderBoard);
+  startGame();
+  </script>
+</body>
+</html>

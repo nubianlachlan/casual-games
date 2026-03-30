@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Casual Games 🎮</title>
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .hero {
+      text-align: center;
+      padding: 8px 0 20px;
+    }
+    .hero p {
+      color: var(--color-muted);
+      font-size: 1.05rem;
+      margin-top: 6px;
+    }
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      margin-bottom: 16px;
+      color: var(--color-text);
+    }
+    footer {
+      text-align: center;
+      padding: 24px 16px;
+      color: var(--color-muted);
+      font-size: .85rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🎮 Casual Games</h1>
+    <p>Fun games for two players on the same device</p>
+  </header>
+
+  <main>
+    <div class="hero">
+      <p>Pick a game below and play together! 👨‍👩‍👧</p>
+    </div>
+
+    <p class="section-title">Choose a Game</p>
+
+    <div class="games-grid">
+
+      <a class="game-card" href="games/tictactoe/">
+        <span class="emoji">❌⭕</span>
+        <h2>Tic-Tac-Toe</h2>
+        <p>Classic X vs O — choose board size &amp; winning streak</p>
+        <span class="badge">3 difficulty levels</span>
+      </a>
+
+      <a class="game-card" href="games/checkers/">
+        <span class="emoji">🔴⚫</span>
+        <h2>Checkers</h2>
+        <p>Traditional draughts — jump over your opponent's pieces!</p>
+        <span class="badge">2 players</span>
+      </a>
+
+      <a class="game-card" href="games/connect-four/">
+        <span class="emoji">🟡🔴</span>
+        <h2>Connect Four</h2>
+        <p>Drop discs and be the first to line up four in a row</p>
+        <span class="badge">2 players</span>
+      </a>
+
+      <a class="game-card" href="games/memory/">
+        <span class="emoji">🃏🃏</span>
+        <h2>Memory Match</h2>
+        <p>Flip cards to find matching pairs — great for little ones!</p>
+        <span class="badge">1-2 players</span>
+      </a>
+
+      <a class="game-card" href="games/dots-boxes/">
+        <span class="emoji">⬜🔲</span>
+        <h2>Dots &amp; Boxes</h2>
+        <p>Take turns drawing lines to complete and claim boxes</p>
+        <span class="badge">2 players</span>
+      </a>
+
+    </div>
+  </main>
+
+  <footer>
+    <p>All games are for two players on the same device. No internet required after loading. 🎉</p>
+  </footer>
+</body>
+</html>

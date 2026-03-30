@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dots &amp; Boxes ⬜</title>
+  <link rel="stylesheet" href="../../css/styles.css" />
+  <style>
+    #db-canvas-wrap {
+      background: var(--color-surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: inline-block;
+      touch-action: manipulation;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    .db-hint {
+      background: #fff;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 12px 18px;
+      font-size: .88rem;
+      color: var(--color-muted);
+      max-width: 480px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="back-link" href="../../">← Back</a>
+    <h1>⬜ Dots &amp; Boxes</h1>
+    <p>Draw lines — complete a box to claim it!</p>
+  </header>
+
+  <main>
+    <div class="game-wrapper">
+
+      <!-- Scoreboard -->
+      <div class="scoreboard">
+        <div class="score-box active" id="db-score-p1">
+          <div class="player-label p1-label" id="db-label-p1">Player 1</div>
+          <div class="player-score" id="db-pts-p1">0</div>
+        </div>
+        <div class="score-box">
+          <div class="player-label" style="font-size:.7rem">Boxes left</div>
+          <div class="player-score" id="db-left">0</div>
+        </div>
+        <div class="score-box" id="db-score-p2">
+          <div class="player-label p2-label" id="db-label-p2">Player 2</div>
+          <div class="player-score" id="db-pts-p2">0</div>
+        </div>
+      </div>
+
+      <!-- Names -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <input id="db-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1"
+               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-primary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+        <input id="db-name-p2" type="text" maxlength="12" placeholder="Player 2" value="Player 2"
+               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-secondary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+      </div>
+
+      <!-- Config -->
+      <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;">
+        <label>
+          Grid size
+          <select id="db-size">
+            <option value="3">3 × 3 boxes (Easy)</option>
+            <option value="4" selected>4 × 4 boxes (Medium)</option>
+            <option value="5">5 × 5 boxes (Hard)</option>
+            <option value="6">6 × 6 boxes (Expert)</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- Status -->
+      <div class="status-bar" id="db-status">Player 1's turn</div>
+
+      <!-- Canvas -->
+      <div id="db-canvas-wrap">
+        <canvas id="db-canvas"></canvas>
+      </div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="btn btn-primary"   id="db-btn-new">New Game</button>
+        <button class="btn btn-secondary" id="db-btn-reset">Reset Scores</button>
+      </div>
+
+      <p class="db-hint">Tap between two dots to draw a line. Completing all four sides of a box claims it!</p>
+
+    </div>
+
+    <!-- Win overlay -->
+    <div class="win-overlay hidden" id="db-overlay">
+      <div class="win-card">
+        <div class="big-emoji" id="db-win-emoji">🎉</div>
+        <h2 id="db-win-msg">Player 1 wins!</h2>
+        <p id="db-win-sub" style="color:var(--color-muted);"></p>
+        <button class="btn btn-primary" id="db-btn-again">Play Again</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+  // Grid of N×N boxes means (N+1)×(N+1) dots
+  // hLines[row][col]: drawn horizontal line between dot(row,col) and dot(row,col+1)  -- N+1 rows, N cols
+  // vLines[row][col]: drawn vertical   line between dot(row,col) and dot(row+1,col)  -- N rows, N+1 cols
+  // boxes[row][col]:  owner of box (0=none, 1=p1, 2=p2)                              -- N×N
+
+  let N, hLines, vLines, boxes, currentPlayer, scores, gameOver;
+  scores = { 1: 0, 2: 0 };
+
+  const canvas   = document.getElementById('db-canvas');
+  const ctx      = canvas.getContext('2d');
+  const statusEl = document.getElementById('db-status');
+  const overlay  = document.getElementById('db-overlay');
+  const winEmoji = document.getElementById('db-win-emoji');
+  const winMsg   = document.getElementById('db-win-msg');
+  const winSub   = document.getElementById('db-win-sub');
+  const nameP1El = document.getElementById('db-name-p1');
+  const nameP2El = document.getElementById('db-name-p2');
+  const labelP1El= document.getElementById('db-label-p1');
+  const labelP2El= document.getElementById('db-label-p2');
+  const scoreP1El= document.getElementById('db-score-p1');
+  const scoreP2El= document.getElementById('db-score-p2');
+  const sizeEl   = document.getElementById('db-size');
+
+  function p1() { return nameP1El.value.trim() || 'Player 1'; }
+  function p2() { return nameP2El.value.trim() || 'Player 2'; }
+  function nameOf(p) { return p === 1 ? p1() : p2(); }
+
+  [nameP1El, nameP2El].forEach(el => el.addEventListener('input', () => {
+    labelP1El.textContent = p1();
+    labelP2El.textContent = p2();
+  }));
+
+  /* ---- Layout ---- */
+  function cellSize() {
+    const vw = Math.min(window.innerWidth, 520);
+    return Math.floor((vw - 48) / (N + 1));
+  }
+
+  const DOT_R    = 5;
+  const LINE_W   = 8;
+  const HIT_ZONE = 18; // px either side of line midpoint
+
+  function canvasMetrics() {
+    const cs = cellSize();
+    const pad = 20;
+    const total = pad * 2 + cs * N;
+    return { cs, pad, total };
+  }
+
+  /* ---- Init ---- */
+  function startGame() {
+    N = parseInt(sizeEl.value);
+    hLines = Array.from({length: N + 1}, () => Array(N).fill(0));
+    vLines = Array.from({length: N},     () => Array(N + 1).fill(0));
+    boxes  = Array.from({length: N},     () => Array(N).fill(0));
+    currentPlayer = 1;
+    gameOver = false;
+    overlay.classList.add('hidden');
+    resizeCanvas();
+    draw();
+    updateStatus();
+    updateHighlight();
+    updateLeft();
+  }
+
+  function resizeCanvas() {
+    const { total } = canvasMetrics();
+    canvas.width  = total;
+    canvas.height = total;
+  }
+
+  /* ---- Drawing ---- */
+  const COLORS = {
+    dot:   '#333',
+    empty: '#ddd',
+    p1:    '#6c63ff',
+    p2:    '#ff6584',
+    box1:  'rgba(108,99,255,.18)',
+    box2:  'rgba(255,101,132,.18)',
+    label1:'#6c63ff',
+    label2:'#ff6584',
+  };
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const { cs, pad } = canvasMetrics();
+
+    // Boxes
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (boxes[r][c]) {
+          ctx.fillStyle = boxes[r][c] === 1 ? COLORS.box1 : COLORS.box2;
+          ctx.fillRect(pad + c * cs, pad + r * cs, cs, cs);
+          ctx.fillStyle = boxes[r][c] === 1 ? COLORS.label1 : COLORS.label2;
+          ctx.font = `bold ${Math.floor(cs * .35)}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(boxes[r][c] === 1 ? '1' : '2',
+            pad + c * cs + cs / 2,
+            pad + r * cs + cs / 2);
+        }
+      }
+    }
+
+    // Horizontal lines
+    for (let r = 0; r <= N; r++) {
+      for (let c = 0; c < N; c++) {
+        const x1 = pad + c * cs, y1 = pad + r * cs;
+        const x2 = pad + (c + 1) * cs;
+        ctx.lineWidth  = LINE_W;
+        ctx.lineCap    = 'round';
+        ctx.strokeStyle = hLines[r][c] ? (hLines[r][c] === 1 ? COLORS.p1 : COLORS.p2) : COLORS.empty;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y1);
+        ctx.stroke();
+      }
+    }
+
+    // Vertical lines
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c <= N; c++) {
+        const x1 = pad + c * cs, y1 = pad + r * cs;
+        const y2 = pad + (r + 1) * cs;
+        ctx.lineWidth  = LINE_W;
+        ctx.lineCap    = 'round';
+        ctx.strokeStyle = vLines[r][c] ? (vLines[r][c] === 1 ? COLORS.p1 : COLORS.p2) : COLORS.empty;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x1, y2);
+        ctx.stroke();
+      }
+    }
+
+    // Dots
+    for (let r = 0; r <= N; r++) {
+      for (let c = 0; c <= N; c++) {
+        ctx.fillStyle = COLORS.dot;
+        ctx.beginPath();
+        ctx.arc(pad + c * cs, pad + r * cs, DOT_R, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+
+  /* ---- Hit detection ---- */
+  function getLineFromPoint(px, py) {
+    const { cs, pad } = canvasMetrics();
+    const hz = HIT_ZONE;
+
+    // Horizontal lines: midpoint at (pad + c*cs + cs/2, pad + r*cs)
+    for (let r = 0; r <= N; r++) {
+      for (let c = 0; c < N; c++) {
+        const mx = pad + c * cs + cs / 2;
+        const my = pad + r * cs;
+        if (Math.abs(px - mx) <= cs / 2 && Math.abs(py - my) <= hz) {
+          return { type: 'h', r, c };
+        }
+      }
+    }
+    // Vertical lines: midpoint at (pad + c*cs, pad + r*cs + cs/2)
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c <= N; c++) {
+        const mx = pad + c * cs;
+        const my = pad + r * cs + cs / 2;
+        if (Math.abs(px - mx) <= hz && Math.abs(py - my) <= cs / 2) {
+          return { type: 'v', r, c };
+        }
+      }
+    }
+    return null;
+  }
+
+  function getEventPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width  / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const src = e.touches ? e.touches[0] : e;
+    return {
+      x: (src.clientX - rect.left) * scaleX,
+      y: (src.clientY - rect.top)  * scaleY,
+    };
+  }
+
+  function handleInput(e) {
+    if (gameOver) return;
+    e.preventDefault();
+    const { x, y } = getEventPos(e);
+    const line = getLineFromPoint(x, y);
+    if (!line) return;
+
+    if (line.type === 'h') {
+      if (hLines[line.r][line.c]) return;
+      hLines[line.r][line.c] = currentPlayer;
+    } else {
+      if (vLines[line.r][line.c]) return;
+      vLines[line.r][line.c] = currentPlayer;
+    }
+
+    const scored = checkBoxes();
+    draw();
+    updateLeft();
+
+    // Check game over
+    if (totalBoxesClaimed() === N * N) {
+      gameOver = true;
+      endGame();
+      return;
+    }
+
+    if (!scored) {
+      currentPlayer = currentPlayer === 1 ? 2 : 1;
+    }
+    updateStatus();
+    updateHighlight();
+  }
+
+  function checkBoxes() {
+    let scored = false;
+    for (let r = 0; r < N; r++) {
+      for (let c = 0; c < N; c++) {
+        if (!boxes[r][c] &&
+            hLines[r][c] && hLines[r + 1][c] &&
+            vLines[r][c] && vLines[r][c + 1]) {
+          boxes[r][c] = currentPlayer;
+          document.getElementById('db-pts-p' + currentPlayer).textContent =
+            ++scores[currentPlayer];
+          scored = true;
+        }
+      }
+    }
+    return scored;
+  }
+
+  function totalBoxesClaimed() {
+    return boxes.flat().filter(v => v).length;
+  }
+
+  function endGame() {
+    const s1 = scores[1], s2 = scores[2];
+    let winner;
+    if (s1 > s2) winner = 1;
+    else if (s2 > s1) winner = 2;
+    else winner = 0;
+
+    if (winner === 0) {
+      winEmoji.textContent = '🤝';
+      winMsg.textContent   = "It's a tie!";
+      winSub.textContent   = `Both claimed ${s1} boxes!`;
+    } else {
+      winEmoji.textContent = '🎉';
+      winMsg.textContent   = `${nameOf(winner)} wins!`;
+      winSub.textContent   = `${scores[winner]} boxes vs ${scores[winner === 1 ? 2 : 1]}`;
+    }
+    overlay.classList.remove('hidden');
+  }
+
+  function updateStatus() {
+    statusEl.textContent = `${nameOf(currentPlayer)}'s turn`;
+  }
+
+  function updateHighlight() {
+    scoreP1El.classList.toggle('active', currentPlayer === 1);
+    scoreP2El.classList.toggle('active', currentPlayer === 2);
+  }
+
+  function updateLeft() {
+    document.getElementById('db-left').textContent = N * N - totalBoxesClaimed();
+  }
+
+  canvas.addEventListener('click',      handleInput);
+  canvas.addEventListener('touchstart', handleInput, { passive: false });
+
+  document.getElementById('db-btn-new').addEventListener('click', () => {
+    scores = { 1: 0, 2: 0 };
+    document.getElementById('db-pts-p1').textContent = 0;
+    document.getElementById('db-pts-p2').textContent = 0;
+    startGame();
+  });
+  document.getElementById('db-btn-reset').addEventListener('click', () => {
+    scores = { 1: 0, 2: 0 };
+    document.getElementById('db-pts-p1').textContent = 0;
+    document.getElementById('db-pts-p2').textContent = 0;
+    startGame();
+  });
+  document.getElementById('db-btn-again').addEventListener('click', () => {
+    scores = { 1: 0, 2: 0 };
+    document.getElementById('db-pts-p1').textContent = 0;
+    document.getElementById('db-pts-p2').textContent = 0;
+    startGame();
+  });
+  sizeEl.addEventListener('change', () => {
+    scores = { 1: 0, 2: 0 };
+    document.getElementById('db-pts-p1').textContent = 0;
+    document.getElementById('db-pts-p2').textContent = 0;
+    startGame();
+  });
+
+  window.addEventListener('resize', () => { resizeCanvas(); draw(); });
+  startGame();
+  </script>
+</body>
+</html>
