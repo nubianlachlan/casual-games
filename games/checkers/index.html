@@ -109,8 +109,8 @@
       </div>
 
       <!-- Rules hint -->
-      <div style="max-width:480px;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:8px 14px;font-size:.78rem;color:var(--color-muted);">
-        <strong>Rules:</strong> Red moves up, Black moves down. Click a piece to select, then click a highlighted square to move.
+      <div style="max-width:480px;background:var(--color-surface);border:1px solid var(--color-border);border-radius:var(--radius);box-shadow:var(--shadow);padding:8px 14px;font-size:.78rem;color:var(--color-muted);">
+        <strong style="color:var(--color-text)">Rules:</strong> Red moves up, Black moves down. Click a piece to select, then click a highlighted square to move.
         Kings (👑) move both directions. Capture by jumping over opponents. Multiple jumps allowed in one turn if available.
       </div>
 
@@ -224,7 +224,7 @@
   function renderBoard() {
     boardEl.innerHTML = '';
     const maxByW = Math.floor((Math.min(window.innerWidth, 480) - 24) / SIZE);
-    const maxByH = Math.floor((window.innerHeight - 280) / SIZE);
+    const maxByH = Math.floor((window.innerHeight - 325) / SIZE);
     const sqSize = Math.max(28, Math.min(maxByW, maxByH));
 
     const jumpsAvail = hasJumps(currentPlayer);

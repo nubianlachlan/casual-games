@@ -151,9 +151,12 @@
 
     function sizeCanvas() {
       const maxW = Math.min(window.innerWidth - 16, 480);
-      const maxH = window.innerHeight - 290;
-      COLS = Math.max(10, Math.floor(maxW / CELL));
-      ROWS = Math.max(10, Math.floor(maxH / CELL));
+      // Use a smaller overhead on landscape phones where innerHeight is limited,
+      // and ensure COLS/ROWS minimum of 8 so the grid always fits comfortably.
+      const overhead = window.innerWidth > window.innerHeight ? 260 : 400;
+      const maxH = window.innerHeight - overhead;
+      COLS = Math.max(8, Math.floor(maxW / CELL));
+      ROWS = Math.max(8, Math.floor(maxH / CELL));
       canvas.width  = COLS * CELL;
       canvas.height = ROWS * CELL;
     }

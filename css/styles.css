@@ -1,6 +1,6 @@
 /* =========================================================
    Casual Games – Global Stylesheet
-   Kid-friendly colour scheme · No-scroll layout
+   Modern dark theme · No-scroll layout
    ========================================================= */
 
 *, *::before, *::after {
@@ -10,16 +10,18 @@
 }
 
 :root {
-  --color-bg:       #E3F2FD;
-  --color-surface:  #ffffff;
-  --color-primary:  #FF6B35;
-  --color-secondary:#EF2D56;
-  --color-accent:   #0EAD69;
-  --color-warning:  #F7B731;
-  --color-text:     #1A1A2E;
-  --color-muted:    #777;
+  --color-bg:       #0d1117;
+  --color-surface:  #161b22;
+  --color-card:     #21262d;
+  --color-border:   #30363d;
+  --color-primary:  #ff7043;
+  --color-secondary:#f50057;
+  --color-accent:   #00c853;
+  --color-warning:  #ffd600;
+  --color-text:     #e6edf3;
+  --color-muted:    #8b949e;
   --radius:         14px;
-  --shadow:         0 4px 16px rgba(0,0,0,.10);
+  --shadow:         0 4px 20px rgba(0,0,0,.40);
   --transition:     .2s ease;
 }
 
@@ -30,6 +32,7 @@ html, body {
   color: var(--color-text);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+  overflow: hidden;
 }
 
 /* ---- Player label colours ---- */
@@ -38,11 +41,11 @@ html, body {
 
 /* ---- Header ---- */
 header {
-  background: linear-gradient(135deg, #FF6B35, #EF2D56);
+  background: linear-gradient(135deg, #ff7043, #f50057);
   color: #fff;
   padding: 8px 16px 6px;
   text-align: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  box-shadow: 0 2px 8px rgba(0,0,0,.3);
   flex-shrink: 0;
 }
 
@@ -94,7 +97,8 @@ main {
 }
 
 .game-card {
-  background: var(--color-surface);
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 18px 12px 14px;
@@ -113,8 +117,9 @@ main {
 
 .game-card:hover, .game-card:focus {
   transform: translateY(-3px);
-  box-shadow: 0 8px 24px rgba(0,0,0,.16);
+  box-shadow: 0 8px 28px rgba(0,0,0,.50);
   outline: none;
+  border-color: var(--color-primary);
 }
 
 .game-card:active {
@@ -160,6 +165,7 @@ main {
   width: 100%;
   max-width: 480px;
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   box-shadow: var(--shadow);
   padding: 6px 14px;
@@ -167,6 +173,7 @@ main {
   font-size: .88rem;
   font-weight: 700;
   min-height: 32px;
+  color: var(--color-text);
 }
 
 /* ---- Controls row ---- */
@@ -204,7 +211,7 @@ main {
 .btn-primary   { background: var(--color-primary);   color: #fff; }
 .btn-secondary { background: var(--color-secondary); color: #fff; }
 .btn-accent    { background: var(--color-accent);    color: #fff; }
-.btn-warning   { background: var(--color-warning);   color: #1A1A2E; }
+.btn-warning   { background: var(--color-warning);   color: #0d1117; }
 
 .btn:hover, .btn:focus {
   filter: brightness(1.08);
@@ -218,6 +225,7 @@ label {
   display: flex;
   align-items: center;
   gap: 5px;
+  color: var(--color-text);
 }
 
 select {
@@ -226,7 +234,7 @@ select {
   padding: 5px 9px;
   border: 2px solid var(--color-primary);
   border-radius: 8px;
-  background: #fff;
+  background: var(--color-surface);
   cursor: pointer;
   min-height: 34px;
   color: var(--color-text);
@@ -242,6 +250,7 @@ select {
 
 .score-box {
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
   box-shadow: var(--shadow);
   padding: 5px 13px;
@@ -260,6 +269,7 @@ select {
 .score-box .player-score {
   font-size: 1.5rem;
   font-weight: 800;
+  color: var(--color-text);
 }
 
 .score-box.active {
@@ -283,7 +293,7 @@ select {
   width: 128px;
   min-height: 36px;
   color: var(--color-text);
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .name-row input:focus {
@@ -311,10 +321,11 @@ select {
 
 .win-card {
   background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 20px;
   padding: 28px 24px;
   text-align: center;
-  box-shadow: 0 12px 48px rgba(0,0,0,.3);
+  box-shadow: 0 12px 48px rgba(0,0,0,.6);
   max-width: 300px;
   width: 100%;
   display: flex;
@@ -337,6 +348,7 @@ select {
 .win-card h2 {
   font-size: 1.4rem;
   font-weight: 800;
+  color: var(--color-text);
 }
 
 .hidden {
