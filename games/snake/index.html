@@ -273,11 +273,14 @@
         // Eyes on head
         if (i === 0) {
           ctx.fillStyle = '#fff';
-          const ex = dir.x !== 0 ? (dir.x > 0 ? .65 : .35) : .35;
-          const ey = dir.y !== 0 ? (dir.y > 0 ? .65 : .35) : .35;
+          // Eye position constants: forward/backward along direction of travel, vertical fraction
+          const EYE_FORWARD  = .65;
+          const EYE_BACKWARD = .35;
+          const EYE_VERTICAL = .30;
+          const ex = dir.x !== 0 ? (dir.x > 0 ? EYE_FORWARD : EYE_BACKWARD) : EYE_BACKWARD;
           ctx.beginPath();
-          ctx.arc(seg.x * CELL + CELL * ex,     seg.y * CELL + CELL * .3, 2.5, 0, Math.PI * 2);
-          ctx.arc(seg.x * CELL + CELL * (1-ex), seg.y * CELL + CELL * .3, 2.5, 0, Math.PI * 2);
+          ctx.arc(seg.x * CELL + CELL * ex,            seg.y * CELL + CELL * EYE_VERTICAL, 2.5, 0, Math.PI * 2);
+          ctx.arc(seg.x * CELL + CELL * (1 - ex),      seg.y * CELL + CELL * EYE_VERTICAL, 2.5, 0, Math.PI * 2);
           ctx.fill();
         }
       });

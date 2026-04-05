@@ -161,9 +161,8 @@
 
     let scores = { 1: 0, 2: 0 };
     let timeLeft, gameRunning, moleTimers, countdownTimer;
-    // Track which player most recently tapped - alternating assignment
-    // For fairness: holes are split L/R: left 2 cols = P1 zone, right 2 cols = P2 zone
-    // Any player can tap any mole, but left-side moles are colour-coded for P1
+    // Scoring zone: left half of columns (col < COLS_COUNT/2) awards P1, right half awards P2.
+    // Both players can physically tap any mole — fastest finger wins the point.
 
     /* ---- Layout ---- */
     function holeSize() {
@@ -197,6 +196,7 @@
     }
 
     /* ---- Game logic ---- */
+    const MOLE_REPOP_PROBABILITY = 0.5;  // chance a whacked hole will pop again shortly
     function startGame() {
       scores = { 1: 0, 2: 0 };
       updateScoreDisplay();
@@ -285,7 +285,7 @@
           setTimeout(() => {
             if (gameRunning) {
               // Randomly decide to pop again from this hole
-              if (Math.random() > .5) {
+              if (Math.random() > MOLE_REPOP_PROBABILITY) {
                 hole.classList.add('up');
                 const stay = 800 + Math.random() * 600;
                 const t = setTimeout(() => hole.classList.remove('up'), stay);

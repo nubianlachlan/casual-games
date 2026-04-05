@@ -166,11 +166,17 @@
     });
 
     /* ---- Ball reset ---- */
+    const BASE_BALL_VX        = .006;   // fraction of CW for base horizontal speed
+    const BASE_BALL_VX_RAND   = .002;   // random variance added to VX
+    const BASE_BALL_VY        = .007;   // fraction of CH for base vertical speed
+    const BASE_BALL_VY_RAND   = .002;   // random variance added to VY
+    const PADDLE_DEFLECT_MULT = .007;   // how much paddle position deflects ball VY
+
     function resetBall(towards) {
       ball = {
         x: CW / 2, y: CH / 2,
-        vx: (towards === 2 ? 1 : -1) * (CW * .006 + Math.random() * CW * .002),
-        vy: (Math.random() > .5 ? 1 : -1) * (CH * .007 + Math.random() * CH * .002),
+        vx: (towards === 2 ? 1 : -1) * (CW * BASE_BALL_VX + Math.random() * CW * BASE_BALL_VX_RAND),
+        vy: (Math.random() > .5 ? 1 : -1) * (CH * BASE_BALL_VY + Math.random() * CH * BASE_BALL_VY_RAND),
       };
     }
 
@@ -220,7 +226,7 @@
           ball.y - BALL_R < p1.y + PADDLE_H &&
           ball.vx < 0) {
         ball.vx = Math.abs(ball.vx) * 1.04;
-        ball.vy += ((ball.y - (p1.y + PADDLE_H / 2)) / PADDLE_H) * CH * .007;
+        ball.vy += ((ball.y - (p1.y + PADDLE_H / 2)) / PADDLE_H) * CH * PADDLE_DEFLECT_MULT;
         ball.x = p1x + PADDLE_W + BALL_R;
       }
 
@@ -232,7 +238,7 @@
           ball.y - BALL_R < p2.y + PADDLE_H &&
           ball.vx > 0) {
         ball.vx = -Math.abs(ball.vx) * 1.04;
-        ball.vy += ((ball.y - (p2.y + PADDLE_H / 2)) / PADDLE_H) * CH * .007;
+        ball.vy += ((ball.y - (p2.y + PADDLE_H / 2)) / PADDLE_H) * CH * PADDLE_DEFLECT_MULT;
         ball.x = p2x - BALL_R;
       }
 
