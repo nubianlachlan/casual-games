@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pong 🏓</title>
+  <link rel="stylesheet" href="../../css/styles.css" />
+  <style>
+    html, body { overflow: hidden; }
+
+    #pong-canvas {
+      display: block;
+      border-radius: 12px;
+      box-shadow: var(--shadow);
+      touch-action: none;
+    }
+
+    .pong-controls-hint {
+      font-size: .72rem;
+      color: var(--color-muted);
+      text-align: center;
+      max-width: 480px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="back-link" href="../../">← Back</a>
+    <h1>🏓 Pong</h1>
+    <p>First to 7 wins!</p>
+  </header>
+
+  <main>
+    <div class="game-wrapper">
+
+      <!-- Scoreboard -->
+      <div class="scoreboard">
+        <div class="score-box active" id="pong-score-p1">
+          <div class="player-label p1-label" id="pong-label-p1">Player 1</div>
+          <div class="player-score" id="pong-pts-p1">0</div>
+        </div>
+        <div class="score-box">
+          <div class="player-label">First to</div>
+          <div class="player-score">7</div>
+        </div>
+        <div class="score-box" id="pong-score-p2">
+          <div class="player-label p2-label" id="pong-label-p2">Player 2</div>
+          <div class="player-score" id="pong-pts-p2">0</div>
+        </div>
+      </div>
+
+      <!-- Status -->
+      <div class="status-bar" id="pong-status">Press Start or tap to begin!</div>
+
+      <!-- Canvas -->
+      <canvas id="pong-canvas"></canvas>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="btn btn-primary"   id="pong-btn-start">▶ Start / Pause</button>
+        <button class="btn btn-secondary" id="pong-btn-reset">🔄 Reset</button>
+      </div>
+
+      <p class="pong-controls-hint">
+        🎮 <strong>P1 (left):</strong> W / S keys &nbsp;|&nbsp; touch &amp; drag left side<br>
+        🎮 <strong>P2 (right):</strong> ↑ / ↓ keys &nbsp;|&nbsp; touch &amp; drag right side
+      </p>
+
+    </div>
+
+    <!-- Win overlay -->
+    <div class="win-overlay hidden" id="pong-overlay">
+      <div class="win-card">
+        <div class="big-emoji" id="pong-win-emoji">🏆</div>
+        <h2 id="pong-win-msg">Player 1 wins!</h2>
+        <button class="btn btn-primary" id="pong-btn-again">▶ Play Again</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /* ======================================================
+       Pong — 2 players, keyboard + touch, first to 7
+       ====================================================== */
+
+    const WIN_SCORE = 7;
+
+    const canvas   = document.getElementById('pong-canvas');
+    const ctx      = canvas.getContext('2d');
+    const statusEl = document.getElementById('pong-status');
+    const overlay  = document.getElementById('pong-overlay');
+    const winEmoji = document.getElementById('pong-win-emoji');
+    const winMsg   = document.getElementById('pong-win-msg');
+    const label1El = document.getElementById('pong-label-p1');
+    const label2El = document.getElementById('pong-label-p2');
+    const scoreP1El= document.getElementById('pong-score-p1');
+    const scoreP2El= document.getElementById('pong-score-p2');
+
+    /* ---- Layout ---- */
+    const PADDLE_W = 10;
+    let CW, CH, PADDLE_H, BALL_R, PADDLE_SPEED;
+
+    function sizeCanvas() {
+      const maxW = Math.min(window.innerWidth - 16, 520);
+      const maxH = window.innerHeight - 265;
+      CW = maxW;
+      CH = Math.max(160, Math.min(maxH, Math.floor(maxW * .55)));
+      canvas.width  = CW;
+      canvas.height = CH;
+      PADDLE_H      = Math.floor(CH * .22);
+      BALL_R        = Math.max(6, Math.floor(CW * .014));
+      PADDLE_SPEED  = Math.floor(CH * .018);
+    }
+
+    /* ---- State ---- */
+    let ball, p1, p2, scores, running, paused, animId;
+    scores = { 1: 0, 2: 0 };
+
+    // Polyfill roundRect for older browsers
+    if (!CanvasRenderingContext2D.prototype.roundRect) {
+      CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+        this.beginPath();
+        this.moveTo(x + r, y);
+        this.lineTo(x + w - r, y);
+        this.arcTo(x + w, y, x + w, y + r, r);
+        this.lineTo(x + w, y + h - r);
+        this.arcTo(x + w, y + h, x + w - r, y + h, r);
+        this.lineTo(x + r, y + h);
+        this.arcTo(x, y + h, x, y + h - r, r);
+        this.lineTo(x, y + r);
+        this.arcTo(x, y, x + r, y, r);
+        this.closePath();
+      };
+    }
+
+    const keys = {};
+    document.addEventListener('keydown', e => { keys[e.key] = true; });
+    document.addEventListener('keyup',   e => { keys[e.key] = false; });
+
+    /* ---- Touch drag for paddles ---- */
+    const activeTouches = {};  // touchId → 'p1' | 'p2'
+
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      Array.from(e.changedTouches).forEach(t => {
+        activeTouches[t.identifier] = t.clientX < canvas.getBoundingClientRect().left + CW / 2
+          ? 'p1' : 'p2';
+      });
+    }, { passive: false });
+
+    canvas.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      Array.from(e.changedTouches).forEach(t => {
+        const side = activeTouches[t.identifier];
+        if (!side) return;
+        const y = (t.clientY - rect.top) * (CH / rect.height);
+        if (side === 'p1') p1.y = Math.max(0, Math.min(CH - PADDLE_H, y - PADDLE_H / 2));
+        else               p2.y = Math.max(0, Math.min(CH - PADDLE_H, y - PADDLE_H / 2));
+      });
+    }, { passive: false });
+
+    canvas.addEventListener('touchend', e => {
+      Array.from(e.changedTouches).forEach(t => delete activeTouches[t.identifier]);
+    });
+
+    /* ---- Ball reset ---- */
+    const BASE_BALL_VX        = .006;   // fraction of CW for base horizontal speed
+    const BASE_BALL_VX_RAND   = .002;   // random variance added to VX
+    const BASE_BALL_VY        = .007;   // fraction of CH for base vertical speed
+    const BASE_BALL_VY_RAND   = .002;   // random variance added to VY
+    const PADDLE_DEFLECT_MULT = .007;   // how much paddle position deflects ball VY
+
+    function resetBall(towards) {
+      ball = {
+        x: CW / 2, y: CH / 2,
+        vx: (towards === 2 ? 1 : -1) * (CW * BASE_BALL_VX + Math.random() * CW * BASE_BALL_VX_RAND),
+        vy: (Math.random() > .5 ? 1 : -1) * (CH * BASE_BALL_VY + Math.random() * CH * BASE_BALL_VY_RAND),
+      };
+    }
+
+    function startGame() {
+      sizeCanvas();
+      p1 = { y: CH / 2 - PADDLE_H / 2 };
+      p2 = { y: CH / 2 - PADDLE_H / 2 };
+      scores = { 1: 0, 2: 0 };
+      updateScoreDisplay();
+      running = false;
+      paused  = false;
+      overlay.classList.add('hidden');
+      resetBall(1);
+      statusEl.textContent = 'Press ▶ or tap to begin!';
+      draw();
+    }
+
+    /* ---- Game loop ---- */
+    function loop() {
+      if (!running) return;
+      update();
+      draw();
+      animId = requestAnimationFrame(loop);
+    }
+
+    function update() {
+      // P1 keyboard
+      if (keys['w'] || keys['W']) p1.y = Math.max(0, p1.y - PADDLE_SPEED);
+      if (keys['s'] || keys['S']) p1.y = Math.min(CH - PADDLE_H, p1.y + PADDLE_SPEED);
+      // P2 keyboard
+      if (keys['ArrowUp'])   p2.y = Math.max(0, p2.y - PADDLE_SPEED);
+      if (keys['ArrowDown']) p2.y = Math.min(CH - PADDLE_H, p2.y + PADDLE_SPEED);
+
+      // Ball movement
+      ball.x += ball.vx;
+      ball.y += ball.vy;
+
+      // Top / bottom bounce
+      if (ball.y - BALL_R < 0)    { ball.y = BALL_R;      ball.vy = Math.abs(ball.vy); }
+      if (ball.y + BALL_R > CH)   { ball.y = CH - BALL_R; ball.vy = -Math.abs(ball.vy); }
+
+      // P1 paddle (left)
+      const p1x = PADDLE_W + 8;
+      if (ball.x - BALL_R < p1x + PADDLE_W &&
+          ball.x + BALL_R > p1x &&
+          ball.y + BALL_R > p1.y &&
+          ball.y - BALL_R < p1.y + PADDLE_H &&
+          ball.vx < 0) {
+        ball.vx = Math.abs(ball.vx) * 1.04;
+        ball.vy += ((ball.y - (p1.y + PADDLE_H / 2)) / PADDLE_H) * CH * PADDLE_DEFLECT_MULT;
+        ball.x = p1x + PADDLE_W + BALL_R;
+      }
+
+      // P2 paddle (right)
+      const p2x = CW - PADDLE_W - 8 - PADDLE_W;
+      if (ball.x + BALL_R > p2x &&
+          ball.x - BALL_R < p2x + PADDLE_W &&
+          ball.y + BALL_R > p2.y &&
+          ball.y - BALL_R < p2.y + PADDLE_H &&
+          ball.vx > 0) {
+        ball.vx = -Math.abs(ball.vx) * 1.04;
+        ball.vy += ((ball.y - (p2.y + PADDLE_H / 2)) / PADDLE_H) * CH * PADDLE_DEFLECT_MULT;
+        ball.x = p2x - BALL_R;
+      }
+
+      // Clamp speed
+      const maxV = CW * .018;
+      ball.vx = Math.max(-maxV, Math.min(maxV, ball.vx));
+      ball.vy = Math.max(-maxV, Math.min(maxV, ball.vy));
+
+      // Score
+      if (ball.x + BALL_R < 0) {
+        scores[2]++;
+        updateScoreDisplay();
+        if (scores[2] >= WIN_SCORE) { endGame(2); return; }
+        resetBall(1);
+      }
+      if (ball.x - BALL_R > CW) {
+        scores[1]++;
+        updateScoreDisplay();
+        if (scores[1] >= WIN_SCORE) { endGame(1); return; }
+        resetBall(2);
+      }
+    }
+
+    /* ---- Drawing ---- */
+    function draw() {
+      ctx.fillStyle = '#1A1A2E';
+      ctx.fillRect(0, 0, CW, CH);
+
+      // Centre dashed line
+      ctx.setLineDash([8, 8]);
+      ctx.strokeStyle = 'rgba(255,255,255,.15)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(CW / 2, 0);
+      ctx.lineTo(CW / 2, CH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Paddles
+      ctx.fillStyle = '#FF6B35';
+      ctx.beginPath();
+      ctx.roundRect(PADDLE_W + 8, p1.y, PADDLE_W, PADDLE_H, 4);
+      ctx.fill();
+
+      ctx.fillStyle = '#EF2D56';
+      ctx.beginPath();
+      ctx.roundRect(CW - PADDLE_W * 2 - 8, p2.y, PADDLE_W, PADDLE_H, 4);
+      ctx.fill();
+
+      // Ball
+      ctx.fillStyle = '#FFD600';
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, BALL_R, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Paused text
+      if (paused) {
+        ctx.fillStyle = 'rgba(0,0,0,.45)';
+        ctx.fillRect(0, 0, CW, CH);
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.floor(CW * .05)}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('PAUSED', CW / 2, CH / 2);
+      }
+    }
+
+    function endGame(winner) {
+      running = false;
+      cancelAnimationFrame(animId);
+      winEmoji.textContent = '🏆';
+      winMsg.textContent   = `${winner === 1 ? label1El.textContent : label2El.textContent} wins!`;
+      statusEl.textContent = `${winner === 1 ? label1El.textContent : label2El.textContent} wins! 🏆`;
+      scoreP1El.classList.toggle('active', winner === 1);
+      scoreP2El.classList.toggle('active', winner === 2);
+      overlay.classList.remove('hidden');
+    }
+
+    function updateScoreDisplay() {
+      document.getElementById('pong-pts-p1').textContent = scores[1];
+      document.getElementById('pong-pts-p2').textContent = scores[2];
+      scoreP1El.classList.toggle('active', scores[1] >= scores[2]);
+      scoreP2El.classList.toggle('active', scores[2] > scores[1]);
+    }
+
+    /* ---- Controls ---- */
+    function togglePause() {
+      if (!running && !paused) {
+        running = true;
+        statusEl.textContent = '🏓 Playing — first to 7 wins!';
+        loop();
+        return;
+      }
+      if (paused) {
+        paused = false;
+        running = true;
+        statusEl.textContent = '🏓 Playing — first to 7 wins!';
+        loop();
+      } else {
+        paused = true;
+        running = false;
+        cancelAnimationFrame(animId);
+        statusEl.textContent = 'Paused ⏸';
+        draw();
+      }
+    }
+
+    canvas.addEventListener('click', () => {
+      if (!running && !paused) togglePause();
+    });
+
+    document.getElementById('pong-btn-start').addEventListener('click', togglePause);
+    document.getElementById('pong-btn-reset').addEventListener('click', () => {
+      running = false;
+      paused  = false;
+      cancelAnimationFrame(animId);
+      startGame();
+    });
+    document.getElementById('pong-btn-again').addEventListener('click', () => {
+      running = false;
+      paused  = false;
+      cancelAnimationFrame(animId);
+      startGame();
+    });
+
+    // Prevent arrow key page scroll
+    document.addEventListener('keydown', e => {
+      if (['ArrowUp','ArrowDown',' '].includes(e.key)) e.preventDefault();
+      if (e.key === ' ') togglePause();
+    });
+
+    window.addEventListener('resize', () => {
+      running = false;
+      cancelAnimationFrame(animId);
+      startGame();
+    });
+
+    startGame();
+  </script>
+</body>
+</html>

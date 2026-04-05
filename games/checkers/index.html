@@ -6,6 +6,8 @@
   <title>Checkers 🔴</title>
   <link rel="stylesheet" href="../../css/styles.css" />
   <style>
+    html, body { overflow: hidden; }
+
     #ck-board {
       display: grid;
       grid-template-columns: repeat(8, 1fr);
@@ -86,11 +88,10 @@
       </div>
 
       <!-- Names -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-        <input id="ck-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1"
-               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-primary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+      <div class="name-row">
+        <input id="ck-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1" />
         <input id="ck-name-p2" type="text" maxlength="12" placeholder="Player 2" value="Player 2"
-               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-secondary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+               style="border-color:var(--color-secondary);" />
       </div>
 
       <!-- Status -->
@@ -108,7 +109,7 @@
       </div>
 
       <!-- Rules hint -->
-      <div style="max-width:480px;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:14px 18px;font-size:.88rem;color:var(--color-muted);">
+      <div style="max-width:480px;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:8px 14px;font-size:.78rem;color:var(--color-muted);">
         <strong>Rules:</strong> Red moves up, Black moves down. Click a piece to select, then click a highlighted square to move.
         Kings (👑) move both directions. Capture by jumping over opponents. Multiple jumps allowed in one turn if available.
       </div>
@@ -222,8 +223,9 @@
   /* ---- Render ---- */
   function renderBoard() {
     boardEl.innerHTML = '';
-    const vw = Math.min(window.innerWidth, 480);
-    const sqSize = Math.floor((vw - 32) / SIZE);
+    const maxByW = Math.floor((Math.min(window.innerWidth, 480) - 24) / SIZE);
+    const maxByH = Math.floor((window.innerHeight - 280) / SIZE);
+    const sqSize = Math.max(28, Math.min(maxByW, maxByH));
 
     const jumpsAvail = hasJumps(currentPlayer);
     let moveableSquares = new Set();

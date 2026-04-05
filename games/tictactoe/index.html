@@ -7,28 +7,30 @@
   <link rel="stylesheet" href="../../css/styles.css" />
   <style>
     /* ---- Difficulty selector ---- */
+    html, body { overflow: hidden; }
+
     .diff-row {
       display: flex;
-      gap: 10px;
+      gap: 7px;
       justify-content: center;
       flex-wrap: wrap;
       width: 100%;
-      max-width: 540px;
+      max-width: 480px;
     }
 
     .diff-btn {
       flex: 1;
-      min-width: 130px;
+      min-width: 110px;
       background: var(--color-surface);
       border: 3px solid transparent;
-      border-radius: 14px;
-      padding: 12px 10px 10px;
+      border-radius: 12px;
+      padding: 8px 8px 6px;
       cursor: pointer;
       box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       transition: border-color var(--transition), transform var(--transition);
       -webkit-user-select: none;
       user-select: none;
@@ -36,16 +38,16 @@
 
     .diff-btn:active { transform: scale(.96); }
 
-    .diff-btn .d-emoji  { font-size: 1.8rem; line-height: 1; }
-    .diff-btn .d-title  { font-weight: 800; font-size: 1rem; }
-    .diff-btn .d-streak { font-size: .78rem; font-weight: 700; color: var(--color-muted); }
-    .diff-btn .d-size   { font-size: .72rem; color: var(--color-muted); margin-top: 2px; }
+    .diff-btn .d-emoji  { font-size: 1.4rem; line-height: 1; }
+    .diff-btn .d-title  { font-weight: 800; font-size: .88rem; }
+    .diff-btn .d-streak { font-size: .7rem; font-weight: 700; color: var(--color-muted); }
+    .diff-btn .d-size   { font-size: .65rem; color: var(--color-muted); margin-top: 1px; }
 
-    .diff-btn.easy.active   { border-color: #43e97b; }
+    .diff-btn.easy.active   { border-color: #0EAD69; }
     .diff-btn.medium.active { border-color: var(--color-warning); }
     .diff-btn.hard.active   { border-color: var(--color-secondary); }
 
-    .diff-btn.easy   .d-title { color: #2d9c5c; }
+    .diff-btn.easy   .d-title { color: #0a8a4f; }
     .diff-btn.medium .d-title { color: #c17d11; }
     .diff-btn.hard   .d-title { color: var(--color-secondary); }
 
@@ -54,22 +56,21 @@
       width: 100%;
       overflow: auto;
       -webkit-overflow-scrolling: touch;
-      border-radius: 14px;
+      border-radius: 12px;
       box-shadow: var(--shadow);
-      /* max height: leave room for header + controls */
-      max-height: calc(100svh - 380px);
+      max-height: calc(100svh - 320px);
     }
 
     /* Fallback if svh not supported */
     @supports not (max-height: 1svh) {
-      #board-scroll { max-height: calc(100vh - 380px); }
+      #board-scroll { max-height: calc(100vh - 320px); }
     }
 
     /* ---- Board grid ---- */
     #board {
       display: grid;
       background: var(--color-primary);
-      padding: 6px;
+      padding: 5px;
       /* columns set by JS */
     }
 
@@ -87,45 +88,46 @@
       line-height: 1;
     }
 
-    .cell:hover:not(.taken) { background: #eef0ff; }
-    .cell:active:not(.taken) { background: #ddd8ff; }
+    .cell:hover:not(.taken) { background: #fff3ee; }
+    .cell:active:not(.taken) { background: #ffd8cc; }
     .cell.taken  { cursor: default; }
-    .cell.x      { color: #6c63ff; }
-    .cell.o      { color: #ff6584; }
+    .cell.x      { color: var(--color-primary); }
+    .cell.o      { color: var(--color-secondary); }
     .cell.win-cell {
       background: #fffacd;
       box-shadow: inset 0 0 0 3px var(--color-warning);
     }
 
     /* Rounded corners only for easy (large cells) */
-    .board-easy  .cell { border-radius: 12px; }
-    .board-medium .cell { border-radius: 6px; }
-    .board-hard  .cell { border-radius: 4px; }
+    .board-easy  .cell { border-radius: 10px; }
+    .board-medium .cell { border-radius: 5px; }
+    .board-hard  .cell { border-radius: 3px; }
 
     /* ---- Gap between cells ---- */
-    .board-easy   { gap: 6px; }
-    .board-medium { gap: 4px; }
-    .board-hard   { gap: 3px; }
+    .board-easy   { gap: 5px; }
+    .board-medium { gap: 3px; }
+    .board-hard   { gap: 2px; }
 
     /* ---- Name inputs ---- */
     .name-inputs {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 8px;
       justify-content: center;
       max-width: 480px;
       width: 100%;
     }
 
     .name-inputs input {
-      font-size: 1rem;
+      font-size: .88rem;
       font-weight: 700;
-      padding: 8px 12px;
+      padding: 5px 10px;
       border: 2px solid var(--color-primary);
-      border-radius: 10px;
-      width: 155px;
-      min-height: 44px;
+      border-radius: 8px;
+      width: 128px;
+      min-height: 36px;
       color: var(--color-text);
+      background: #fff;
     }
 
     .name-inputs input:focus {
@@ -133,12 +135,12 @@
       border-color: var(--color-secondary);
     }
 
-    .p1-label { color: #6c63ff; }
-    .p2-label { color: #ff6584; }
+    .p1-label { color: var(--color-primary); }
+    .p2-label { color: var(--color-secondary); }
 
     /* ---- Scroll hint (only shown when board overflows) ---- */
     .scroll-hint {
-      font-size: .78rem;
+      font-size: .72rem;
       color: var(--color-muted);
       text-align: center;
     }
@@ -242,10 +244,10 @@
     function calcDims(diff) {
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      // Available width for the board (leave 32px padding)
-      const availW = vw - 32;
-      // Available height (subtract header ~100px, controls ~200px, gaps ~80px)
-      const availH = Math.max(200, vh - 380);
+      // Available width for the board (leave 24px padding)
+      const availW = vw - 24;
+      // Available height (subtract compact header ~55px, controls ~270px, gaps ~50px)
+      const availH = Math.max(180, vh - 310);
 
       if (diff === 'easy') {
         // Classic 3×3, cells scale to fill screen

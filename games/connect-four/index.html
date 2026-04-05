@@ -6,6 +6,8 @@
   <title>Connect Four 🟡</title>
   <link rel="stylesheet" href="../../css/styles.css" />
   <style>
+    html, body { overflow: hidden; }
+
     #cf-board {
       background: #1a73e8;
       border-radius: 16px;
@@ -89,11 +91,10 @@
       </div>
 
       <!-- Player names -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-        <input id="cf-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1"
-               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-primary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+      <div class="name-row">
+        <input id="cf-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1" />
         <input id="cf-name-p2" type="text" maxlength="12" placeholder="Player 2" value="Player 2"
-               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-secondary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+               style="border-color:var(--color-secondary);" />
       </div>
 
       <!-- Status -->
@@ -170,7 +171,9 @@
     /* ---- Cell size ---- */
     function cellSize() {
       const vw = Math.min(window.innerWidth, 520);
-      return Math.floor((vw - 48) / COLS);
+      const maxByW = Math.floor((vw - 40) / COLS);
+      const maxByH = Math.floor((window.innerHeight - 265) / (ROWS + 1));
+      return Math.max(24, Math.min(maxByW, maxByH));
     }
 
     function renderBoard() {

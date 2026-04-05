@@ -6,6 +6,8 @@
   <title>Dots &amp; Boxes ⬜</title>
   <link rel="stylesheet" href="../../css/styles.css" />
   <style>
+    html, body { overflow: hidden; }
+
     #db-canvas-wrap {
       background: var(--color-surface);
       border-radius: var(--radius);
@@ -23,8 +25,8 @@
       background: #fff;
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 12px 18px;
-      font-size: .88rem;
+      padding: 8px 14px;
+      font-size: .78rem;
       color: var(--color-muted);
       max-width: 480px;
       text-align: center;
@@ -58,11 +60,10 @@
       </div>
 
       <!-- Names -->
-      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
-        <input id="db-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1"
-               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-primary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+      <div class="name-row">
+        <input id="db-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1" />
         <input id="db-name-p2" type="text" maxlength="12" placeholder="Player 2" value="Player 2"
-               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-secondary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+               style="border-color:var(--color-secondary);" />
       </div>
 
       <!-- Config -->
@@ -143,7 +144,9 @@
   /* ---- Layout ---- */
   function cellSize() {
     const vw = Math.min(window.innerWidth, 520);
-    return Math.floor((vw - 48) / (N + 1));
+    const maxByW = Math.floor((vw - 40) / (N + 1));
+    const maxByH = Math.floor((window.innerHeight - 305) / (N + 1));
+    return Math.max(28, Math.min(maxByW, maxByH));
   }
 
   const DOT_R    = 5;
@@ -183,12 +186,12 @@
   const COLORS = {
     dot:   '#333',
     empty: '#ddd',
-    p1:    '#6c63ff',
-    p2:    '#ff6584',
-    box1:  'rgba(108,99,255,.18)',
-    box2:  'rgba(255,101,132,.18)',
-    label1:'#6c63ff',
-    label2:'#ff6584',
+    p1:    '#FF6B35',
+    p2:    '#EF2D56',
+    box1:  'rgba(255,107,53,.15)',
+    box2:  'rgba(239,45,86,.15)',
+    label1:'#FF6B35',
+    label2:'#EF2D56',
   };
 
   function draw() {

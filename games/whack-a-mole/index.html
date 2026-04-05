@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Whack-a-Mole 🔨</title>
+  <link rel="stylesheet" href="../../css/styles.css" />
+  <style>
+    html, body { overflow: hidden; }
+
+    #wam-grid {
+      display: grid;
+      gap: 10px;
+      touch-action: manipulation;
+    }
+
+    .wam-hole {
+      border-radius: 50%;
+      background: #5a3a1a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 8px 16px rgba(0,0,0,.6);
+      -webkit-user-select: none;
+      user-select: none;
+      transition: transform .07s;
+    }
+
+    .wam-hole:active { transform: scale(.93); }
+
+    .wam-mole {
+      position: absolute;
+      bottom: 0;
+      font-size: 2.2rem;
+      line-height: 1;
+      transform: translateY(100%);
+      transition: transform .18s cubic-bezier(.34,1.56,.64,1);
+      pointer-events: none;
+    }
+
+    .wam-hole.up .wam-mole {
+      transform: translateY(10%);
+    }
+
+    .wam-hole.whacked .wam-mole {
+      filter: brightness(2) saturate(0);
+      transform: translateY(100%) scale(.7);
+      transition: transform .15s ease-in;
+    }
+
+    /* Timer bar */
+    .timer-wrap {
+      width: 100%;
+      max-width: 480px;
+      height: 10px;
+      background: rgba(0,0,0,.12);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+
+    #wam-timer-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #0EAD69, #F7B731, #EF2D56);
+      border-radius: 5px;
+      width: 100%;
+      transition: width .25s linear;
+    }
+
+    .p-instructions {
+      font-size: .75rem;
+      color: var(--color-muted);
+      text-align: center;
+      max-width: 440px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="back-link" href="../../">← Back</a>
+    <h1>🔨 Whack-a-Mole 🐹</h1>
+    <p>Tap moles as fast as you can!</p>
+  </header>
+
+  <main>
+    <div class="game-wrapper">
+
+      <!-- Scoreboard -->
+      <div class="scoreboard">
+        <div class="score-box active" id="wam-score-p1">
+          <div class="player-label p1-label" id="wam-label-p1">Player 1</div>
+          <div class="player-score" id="wam-pts-p1">0</div>
+        </div>
+        <div class="score-box">
+          <div class="player-label">Time</div>
+          <div class="player-score" id="wam-time">30</div>
+        </div>
+        <div class="score-box" id="wam-score-p2">
+          <div class="player-label p2-label" id="wam-label-p2">Player 2</div>
+          <div class="player-score" id="wam-pts-p2">0</div>
+        </div>
+      </div>
+
+      <!-- Timer bar -->
+      <div class="timer-wrap">
+        <div id="wam-timer-bar"></div>
+      </div>
+
+      <!-- Status -->
+      <div class="status-bar" id="wam-status">Press Start to play!</div>
+
+      <!-- Mole grid -->
+      <div id="wam-grid"></div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="btn btn-primary"   id="wam-btn-start">▶ Start</button>
+        <button class="btn btn-secondary" id="wam-btn-reset">🔄 Reset</button>
+      </div>
+
+      <p class="p-instructions">Both players tap any mole as fast as possible! First to tap gets the point. 30 seconds each round.</p>
+
+    </div>
+
+    <!-- Win overlay -->
+    <div class="win-overlay hidden" id="wam-overlay">
+      <div class="win-card">
+        <div class="big-emoji" id="wam-win-emoji">🏆</div>
+        <h2 id="wam-win-msg">Player 1 wins!</h2>
+        <p id="wam-win-sub" style="color:var(--color-muted);font-weight:600;"></p>
+        <button class="btn btn-primary" id="wam-btn-again">▶ Play Again</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    /* ======================================================
+       Whack-a-Mole — 2 players, 30-second round
+       ====================================================== */
+
+    const GAME_TIME  = 30;    // seconds
+    const COLS_COUNT = 4;
+    const ROWS_COUNT = 3;
+    const HOLE_COUNT = COLS_COUNT * ROWS_COUNT;
+
+    const statusEl  = document.getElementById('wam-status');
+    const timeEl    = document.getElementById('wam-time');
+    const timerBar  = document.getElementById('wam-timer-bar');
+    const overlay   = document.getElementById('wam-overlay');
+    const winEmoji  = document.getElementById('wam-win-emoji');
+    const winMsg    = document.getElementById('wam-win-msg');
+    const winSub    = document.getElementById('wam-win-sub');
+    const gridEl    = document.getElementById('wam-grid');
+    const label1El  = document.getElementById('wam-label-p1');
+    const label2El  = document.getElementById('wam-label-p2');
+    const scoreP1El = document.getElementById('wam-score-p1');
+    const scoreP2El = document.getElementById('wam-score-p2');
+
+    let scores = { 1: 0, 2: 0 };
+    let timeLeft, gameRunning, moleTimers, countdownTimer;
+    // Scoring zone: left half of columns (col < COLS_COUNT/2) awards P1, right half awards P2.
+    // Both players can physically tap any mole — fastest finger wins the point.
+
+    /* ---- Layout ---- */
+    function holeSize() {
+      const maxW = Math.min(window.innerWidth - 16, 480);
+      const maxH = window.innerHeight - 300;
+      const byW = Math.floor((maxW - (COLS_COUNT - 1) * 10) / COLS_COUNT);
+      const byH = Math.floor((maxH - (ROWS_COUNT - 1) * 10) / ROWS_COUNT);
+      return Math.max(48, Math.min(byW, byH, 110));
+    }
+
+    /* ---- Build grid ---- */
+    function buildGrid() {
+      const hs = holeSize();
+      gridEl.style.gridTemplateColumns = `repeat(${COLS_COUNT}, ${hs}px)`;
+      gridEl.innerHTML = '';
+      for (let i = 0; i < HOLE_COUNT; i++) {
+        const hole = document.createElement('div');
+        hole.className = 'wam-hole';
+        hole.style.width  = hs + 'px';
+        hole.style.height = hs + 'px';
+        const mole = document.createElement('div');
+        mole.className = 'wam-mole';
+        mole.textContent = '🐹';
+        hole.appendChild(mole);
+        hole.addEventListener('pointerdown', (e) => {
+          e.preventDefault();
+          whack(hole, i);
+        });
+        gridEl.appendChild(hole);
+      }
+    }
+
+    /* ---- Game logic ---- */
+    const MOLE_REPOP_PROBABILITY = 0.5;  // chance a whacked hole will pop again shortly
+    function startGame() {
+      scores = { 1: 0, 2: 0 };
+      updateScoreDisplay();
+      timeLeft = GAME_TIME;
+      gameRunning = true;
+      moleTimers = [];
+      overlay.classList.add('hidden');
+      timeEl.textContent = GAME_TIME;
+      timerBar.style.width = '100%';
+      statusEl.textContent = 'Go! Whack those moles! 🔨';
+      buildGrid();
+      scheduleMoles();
+      countdownTimer = setInterval(tick, 1000);
+    }
+
+    function tick() {
+      timeLeft--;
+      timeEl.textContent = timeLeft;
+      timerBar.style.width = (timeLeft / GAME_TIME * 100) + '%';
+      if (timeLeft <= 0) endGame();
+    }
+
+    function endGame() {
+      gameRunning = false;
+      clearInterval(countdownTimer);
+      moleTimers.forEach(clearTimeout);
+      // Hide all moles
+      document.querySelectorAll('.wam-hole.up').forEach(h => h.classList.remove('up'));
+
+      const s1 = scores[1], s2 = scores[2];
+      if (s1 > s2) {
+        winEmoji.textContent = '🏆';
+        winMsg.textContent   = `${label1El.textContent} wins!`;
+      } else if (s2 > s1) {
+        winEmoji.textContent = '🏆';
+        winMsg.textContent   = `${label2El.textContent} wins!`;
+      } else {
+        winEmoji.textContent = '🤝';
+        winMsg.textContent   = "It's a tie!";
+      }
+      winSub.textContent = `${s1} vs ${s2} whacks`;
+      overlay.classList.remove('hidden');
+    }
+
+    function scheduleMoles() {
+      // Keep 2-4 moles up at a time, randomise which holes
+      function popMole() {
+        if (!gameRunning) return;
+        const holes = Array.from(document.querySelectorAll('.wam-hole:not(.up):not(.whacked)'));
+        if (holes.length === 0) return;
+        const hole = holes[Math.floor(Math.random() * holes.length)];
+        hole.classList.add('up');
+        const stayTime = 900 + Math.random() * 700;
+        const t = setTimeout(() => {
+          hole.classList.remove('up');
+          if (gameRunning) {
+            const delay = 300 + Math.random() * 400;
+            moleTimers.push(setTimeout(popMole, delay));
+          }
+        }, stayTime);
+        moleTimers.push(t);
+      }
+
+      // Start with 3 moles
+      for (let i = 0; i < 3; i++) {
+        moleTimers.push(setTimeout(popMole, i * 300));
+      }
+    }
+
+    function whack(hole, idx) {
+      if (!gameRunning || !hole.classList.contains('up')) return;
+      hole.classList.remove('up');
+      hole.classList.add('whacked');
+
+      // Assign point: left half = P1, right half = P2 (by column)
+      const col = idx % COLS_COUNT;
+      const player = col < COLS_COUNT / 2 ? 1 : 2;
+      scores[player]++;
+      updateScoreDisplay();
+      updateActiveHighlight(player);
+
+      // Visual feedback then reset hole
+      setTimeout(() => {
+        hole.classList.remove('whacked');
+        if (gameRunning) {
+          setTimeout(() => {
+            if (gameRunning) {
+              // Randomly decide to pop again from this hole
+              if (Math.random() > MOLE_REPOP_PROBABILITY) {
+                hole.classList.add('up');
+                const stay = 800 + Math.random() * 600;
+                const t = setTimeout(() => hole.classList.remove('up'), stay);
+                moleTimers.push(t);
+              }
+            }
+          }, 400 + Math.random() * 300);
+        }
+      }, 300);
+    }
+
+    function updateScoreDisplay() {
+      document.getElementById('wam-pts-p1').textContent = scores[1];
+      document.getElementById('wam-pts-p2').textContent = scores[2];
+    }
+
+    function updateActiveHighlight(p) {
+      scoreP1El.classList.toggle('active', p === 1);
+      scoreP2El.classList.toggle('active', p === 2);
+    }
+
+    document.getElementById('wam-btn-start').addEventListener('click', () => {
+      if (!gameRunning) startGame();
+    });
+    document.getElementById('wam-btn-reset').addEventListener('click', () => {
+      gameRunning = false;
+      clearInterval(countdownTimer);
+      if (moleTimers) moleTimers.forEach(clearTimeout);
+      overlay.classList.add('hidden');
+      scores = { 1: 0, 2: 0 };
+      updateScoreDisplay();
+      timeLeft = GAME_TIME;
+      timeEl.textContent = GAME_TIME;
+      timerBar.style.width = '100%';
+      statusEl.textContent = 'Press Start to play!';
+      buildGrid();
+    });
+    document.getElementById('wam-btn-again').addEventListener('click', startGame);
+
+    window.addEventListener('resize', () => {
+      if (!gameRunning) buildGrid();
+    });
+
+    buildGrid();
+  </script>
+</body>
+</html>
