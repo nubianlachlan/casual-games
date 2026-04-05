@@ -384,11 +384,8 @@
     });
 
     canvas.addEventListener('touchend', e => {
-      if (waitingForServe) {
-        e.preventDefault();
-        serve();
-      }
-    }, { passive: false });
+      if (waitingForServe) serve();
+    }, { passive: true });
 
     document.getElementById('pong-btn-start').addEventListener('click', togglePause);
     document.getElementById('pong-btn-reset').addEventListener('click', () => {
