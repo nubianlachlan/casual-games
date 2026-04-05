@@ -167,7 +167,7 @@
     /* ---- Layout ---- */
     function holeSize() {
       const maxW = Math.min(window.innerWidth - 16, 480);
-      const maxH = window.innerHeight - 300;
+      const maxH = window.innerHeight - 340;
       const byW = Math.floor((maxW - (COLS_COUNT - 1) * 10) / COLS_COUNT);
       const byH = Math.floor((maxH - (ROWS_COUNT - 1) * 10) / ROWS_COUNT);
       return Math.max(48, Math.min(byW, byH, 110));

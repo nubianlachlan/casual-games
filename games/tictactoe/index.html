@@ -76,7 +76,7 @@
 
     /* ---- Cells ---- */
     .cell {
-      background: #fff;
+      background: var(--color-card);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -88,13 +88,13 @@
       line-height: 1;
     }
 
-    .cell:hover:not(.taken) { background: #fff3ee; }
-    .cell:active:not(.taken) { background: #ffd8cc; }
+    .cell:hover:not(.taken) { background: #2d3748; }
+    .cell:active:not(.taken) { background: #3a3f52; }
     .cell.taken  { cursor: default; }
     .cell.x      { color: var(--color-primary); }
     .cell.o      { color: var(--color-secondary); }
     .cell.win-cell {
-      background: #fffacd;
+      background: #2d2a0f;
       box-shadow: inset 0 0 0 3px var(--color-warning);
     }
 
@@ -127,7 +127,7 @@
       width: 128px;
       min-height: 36px;
       color: var(--color-text);
-      background: #fff;
+      background: var(--color-surface);
     }
 
     .name-inputs input:focus {
@@ -247,7 +247,7 @@
       // Available width for the board (leave 24px padding)
       const availW = vw - 24;
       // Available height (subtract compact header ~55px, controls ~270px, gaps ~50px)
-      const availH = Math.max(180, vh - 310);
+      const availH = Math.max(180, vh - 355);
 
       if (diff === 'easy') {
         // Classic 3×3, cells scale to fill screen
