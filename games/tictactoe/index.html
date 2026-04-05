@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tic-Tac-Toe 🎯</title>
+  <link rel="stylesheet" href="../../css/styles.css" />
+  <style>
+    /* ---- Difficulty selector ---- */
+    .diff-row {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      width: 100%;
+      max-width: 540px;
+    }
+
+    .diff-btn {
+      flex: 1;
+      min-width: 130px;
+      background: var(--color-surface);
+      border: 3px solid transparent;
+      border-radius: 14px;
+      padding: 12px 10px 10px;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      transition: border-color var(--transition), transform var(--transition);
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .diff-btn:active { transform: scale(.96); }
+
+    .diff-btn .d-emoji  { font-size: 1.8rem; line-height: 1; }
+    .diff-btn .d-title  { font-weight: 800; font-size: 1rem; }
+    .diff-btn .d-streak { font-size: .78rem; font-weight: 700; color: var(--color-muted); }
+    .diff-btn .d-size   { font-size: .72rem; color: var(--color-muted); margin-top: 2px; }
+
+    .diff-btn.easy.active   { border-color: #43e97b; }
+    .diff-btn.medium.active { border-color: var(--color-warning); }
+    .diff-btn.hard.active   { border-color: var(--color-secondary); }
+
+    .diff-btn.easy   .d-title { color: #2d9c5c; }
+    .diff-btn.medium .d-title { color: #c17d11; }
+    .diff-btn.hard   .d-title { color: var(--color-secondary); }
+
+    /* ---- Board scroll wrapper ---- */
+    #board-scroll {
+      width: 100%;
+      overflow: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      /* max height: leave room for header + controls */
+      max-height: calc(100svh - 380px);
+    }
+
+    /* Fallback if svh not supported */
+    @supports not (max-height: 1svh) {
+      #board-scroll { max-height: calc(100vh - 380px); }
+    }
+
+    /* ---- Board grid ---- */
+    #board {
+      display: grid;
+      background: var(--color-primary);
+      padding: 6px;
+      /* columns set by JS */
+    }
+
+    /* ---- Cells ---- */
+    .cell {
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      cursor: pointer;
+      transition: background var(--transition);
+      -webkit-user-select: none;
+      user-select: none;
+      line-height: 1;
+    }
+
+    .cell:hover:not(.taken) { background: #eef0ff; }
+    .cell:active:not(.taken) { background: #ddd8ff; }
+    .cell.taken  { cursor: default; }
+    .cell.x      { color: #6c63ff; }
+    .cell.o      { color: #ff6584; }
+    .cell.win-cell {
+      background: #fffacd;
+      box-shadow: inset 0 0 0 3px var(--color-warning);
+    }
+
+    /* Rounded corners only for easy (large cells) */
+    .board-easy  .cell { border-radius: 12px; }
+    .board-medium .cell { border-radius: 6px; }
+    .board-hard  .cell { border-radius: 4px; }
+
+    /* ---- Gap between cells ---- */
+    .board-easy   { gap: 6px; }
+    .board-medium { gap: 4px; }
+    .board-hard   { gap: 3px; }
+
+    /* ---- Name inputs ---- */
+    .name-inputs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      max-width: 480px;
+      width: 100%;
+    }
+
+    .name-inputs input {
+      font-size: 1rem;
+      font-weight: 700;
+      padding: 8px 12px;
+      border: 2px solid var(--color-primary);
+      border-radius: 10px;
+      width: 155px;
+      min-height: 44px;
+      color: var(--color-text);
+    }
+
+    .name-inputs input:focus {
+      outline: none;
+      border-color: var(--color-secondary);
+    }
+
+    .p1-label { color: #6c63ff; }
+    .p2-label { color: #ff6584; }
+
+    /* ---- Scroll hint (only shown when board overflows) ---- */
+    .scroll-hint {
+      font-size: .78rem;
+      color: var(--color-muted);
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="back-link" href="../../">← Back</a>
+    <h1>❌ Tic-Tac-Toe ⭕</h1>
+    <p>Take turns — first to complete a row wins!</p>
+  </header>
+
+  <main>
+    <div class="game-wrapper">
+
+      <!-- Scoreboard -->
+      <div class="scoreboard">
+        <div class="score-box active" id="score-p1">
+          <div class="player-label p1-label" id="label-p1">Player 1 (X)</div>
+          <div class="player-score" id="pts-p1">0</div>
+        </div>
+        <div class="score-box" id="draw-box">
+          <div class="player-label">Draws</div>
+          <div class="player-score" id="pts-draw">0</div>
+        </div>
+        <div class="score-box" id="score-p2">
+          <div class="player-label p2-label" id="label-p2">Player 2 (O)</div>
+          <div class="player-score" id="pts-p2">0</div>
+        </div>
+      </div>
+
+      <!-- Player names -->
+      <div class="name-inputs">
+        <input id="name-p1" type="text" maxlength="12" placeholder="Player 1 name" value="Player 1" />
+        <input id="name-p2" type="text" maxlength="12" placeholder="Player 2 name" value="Player 2" />
+      </div>
+
+      <!-- Difficulty selector (screen-aware sizes shown in JS) -->
+      <div class="diff-row" id="diff-row">
+        <button class="diff-btn easy active" data-diff="easy">
+          <span class="d-emoji">😊</span>
+          <span class="d-title">Easy</span>
+          <span class="d-streak">3 in a row</span>
+          <span class="d-size" id="sz-easy">3 × 3</span>
+        </button>
+        <button class="diff-btn medium" data-diff="medium">
+          <span class="d-emoji">🤔</span>
+          <span class="d-title">Medium</span>
+          <span class="d-streak">4 in a row</span>
+          <span class="d-size" id="sz-medium">loading…</span>
+        </button>
+        <button class="diff-btn hard" data-diff="hard">
+          <span class="d-emoji">😤</span>
+          <span class="d-title">Hard</span>
+          <span class="d-streak">5 in a row</span>
+          <span class="d-size" id="sz-hard">loading…</span>
+        </button>
+      </div>
+
+      <!-- Status -->
+      <div class="status-bar" id="status">Player 1's turn (X)</div>
+
+      <!-- Board (scrollable on medium/hard) -->
+      <div id="board-scroll">
+        <div id="board" class="board-easy"></div>
+      </div>
+      <p class="scroll-hint hidden" id="scroll-hint">↔ Scroll to see the full board</p>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="btn btn-primary"   id="btn-new">New Game</button>
+        <button class="btn btn-secondary" id="btn-reset">Reset Scores</button>
+      </div>
+
+    </div>
+
+    <!-- Win overlay -->
+    <div class="win-overlay hidden" id="win-overlay">
+      <div class="win-card">
+        <div class="big-emoji" id="win-emoji">🎉</div>
+        <h2 id="win-msg">Player 1 wins!</h2>
+        <button class="btn btn-primary" id="btn-play-again">Play Again</button>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    /* ================================================================
+       Tic-Tac-Toe — screen-adaptive difficulty levels
+       ================================================================ */
+
+    /* ---- Difficulty presets ---- */
+    const DIFF = {
+      easy:   { streak: 3, cellPx: null  },   // cellPx computed per screen
+      medium: { streak: 4, cellPx: 28    },
+      hard:   { streak: 5, cellPx: 20    },
+    };
+
+    /* ---- Compute board dimensions from screen size ---- */
+    function calcDims(diff) {
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      // Available width for the board (leave 32px padding)
+      const availW = vw - 32;
+      // Available height (subtract header ~100px, controls ~200px, gaps ~80px)
+      const availH = Math.max(200, vh - 380);
+
+      if (diff === 'easy') {
+        // Classic 3×3, cells scale to fill screen
+        const cs = Math.floor(Math.min(availW, availH, 320) / 3);
+        return { cols: 3, rows: 3, cellPx: Math.max(48, cs) };
+      }
+
+      if (diff === 'medium') {
+        const cs = DIFF.medium.cellPx;
+        const cols = Math.max(10, Math.min(30, Math.floor(availW / (cs + 4))));
+        const rows = Math.max(8,  Math.min(20, Math.floor(availH / (cs + 4))));
+        return { cols, rows, cellPx: cs };
+      }
+
+      // hard
+      const cs = DIFF.hard.cellPx;
+      const cols = Math.max(15, Math.min(40, Math.floor(availW / (cs + 3))));
+      const rows = Math.max(10, Math.min(30, Math.floor(availH / (cs + 3))));
+      return { cols, rows, cellPx: cs };
+    }
+
+    /* ---- Update the size labels on the difficulty buttons ---- */
+    function updateDiffLabels() {
+      for (const d of ['easy', 'medium', 'hard']) {
+        const { cols, rows } = calcDims(d);
+        document.getElementById('sz-' + d).textContent = `${cols} × ${rows}`;
+      }
+    }
+
+    /* ---- State ---- */
+    let cols, rows, streak, cellPx, currentDiff;
+    let board = [];          // flat array [row*cols+col]: '' | 'X' | 'O'
+    let currentPlayer = 'X';
+    let gameOver = false;
+    let winLine = null;
+    let scores = { X: 0, O: 0, draw: 0 };
+
+    /* ---- DOM refs ---- */
+    const boardEl     = document.getElementById('board');
+    const scrollEl    = document.getElementById('board-scroll');
+    const statusEl    = document.getElementById('status');
+    const overlay     = document.getElementById('win-overlay');
+    const winEmoji    = document.getElementById('win-emoji');
+    const winMsg      = document.getElementById('win-msg');
+    const nameP1      = document.getElementById('name-p1');
+    const nameP2      = document.getElementById('name-p2');
+    const labelP1     = document.getElementById('label-p1');
+    const labelP2     = document.getElementById('label-p2');
+    const scoreP1El   = document.getElementById('score-p1');
+    const scoreP2El   = document.getElementById('score-p2');
+    const scrollHint  = document.getElementById('scroll-hint');
+
+    function p1Name() { return nameP1.value.trim() || 'Player 1'; }
+    function p2Name() { return nameP2.value.trim() || 'Player 2'; }
+    function nameOf(p) { return p === 'X' ? p1Name() : p2Name(); }
+
+    /* ---- Name inputs ---- */
+    [nameP1, nameP2].forEach(el => el.addEventListener('input', () => {
+      labelP1.textContent = p1Name() + ' (X)';
+      labelP2.textContent = p2Name() + ' (O)';
+    }));
+
+    /* ---- Difficulty buttons ---- */
+    document.getElementById('diff-row').addEventListener('click', e => {
+      const btn = e.target.closest('.diff-btn');
+      if (!btn) return;
+      selectDiff(btn.dataset.diff);
+    });
+
+    function selectDiff(diff) {
+      currentDiff = diff;
+      document.querySelectorAll('.diff-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.diff === diff);
+      });
+      winLine = null;
+      startGame();
+    }
+
+    /* ---- Start / new game ---- */
+    function startGame() {
+      const dims = calcDims(currentDiff);
+      cols   = dims.cols;
+      rows   = dims.rows;
+      cellPx = dims.cellPx;
+      streak = DIFF[currentDiff].streak;
+
+      board         = Array(cols * rows).fill('');
+      currentPlayer = 'X';
+      gameOver      = false;
+      winLine       = null;
+      overlay.classList.add('hidden');
+
+      boardEl.className = 'board-' + currentDiff;
+      renderBoard();
+      updateStatus();
+      updateScoreHighlight();
+      updateScrollHint();
+    }
+
+    /* ---- Render ---- */
+    function renderBoard() {
+      boardEl.innerHTML = '';
+      const gap = currentDiff === 'easy' ? 6 : currentDiff === 'medium' ? 4 : 3;
+      const totalW = cellPx * cols + gap * (cols - 1) + 12;
+
+      boardEl.style.gridTemplateColumns = `repeat(${cols}, ${cellPx}px)`;
+      boardEl.style.width  = totalW + 'px';
+
+      board.forEach((val, idx) => {
+        const cell = document.createElement('div');
+        const isWin = winLine && winLine.includes(idx);
+        cell.className = 'cell'
+          + (val ? ' taken ' + val.toLowerCase() : '')
+          + (isWin ? ' win-cell' : '');
+        cell.style.width  = cellPx + 'px';
+        cell.style.height = cellPx + 'px';
+        cell.style.fontSize = Math.max(10, Math.floor(cellPx * .52)) + 'px';
+        cell.textContent = val;
+        if (!val) cell.addEventListener('click', () => handleClick(idx));
+        boardEl.appendChild(cell);
+      });
+    }
+
+    /* ---- Click handler ---- */
+    function handleClick(idx) {
+      if (gameOver || board[idx]) return;
+      board[idx] = currentPlayer;
+
+      const found = checkWin(currentPlayer);
+      if (found) {
+        gameOver = true;
+        winLine  = found;
+        scores[currentPlayer]++;
+        renderBoard();
+        showWin(currentPlayer);
+        updateScore();
+        return;
+      }
+
+      if (board.every(v => v)) {
+        gameOver = true;
+        scores.draw++;
+        renderBoard();
+        showDraw();
+        updateScore();
+        return;
+      }
+
+      currentPlayer = currentPlayer === 'X' ? 'O' : 'X';
+      renderBoard();
+      updateStatus();
+      updateScoreHighlight();
+    }
+
+    /* ---- Win detection (works for any cols × rows × streak) ---- */
+    function checkWin(player) {
+      const k = streak;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (board[r * cols + c] !== player) continue;
+
+          // horizontal →
+          if (c + k <= cols) {
+            const line = Array.from({length: k}, (_, i) => r * cols + c + i);
+            if (line.every(i => board[i] === player)) return line;
+          }
+          // vertical ↓
+          if (r + k <= rows) {
+            const line = Array.from({length: k}, (_, i) => (r + i) * cols + c);
+            if (line.every(i => board[i] === player)) return line;
+          }
+          // diagonal ↘
+          if (c + k <= cols && r + k <= rows) {
+            const line = Array.from({length: k}, (_, i) => (r + i) * cols + c + i);
+            if (line.every(i => board[i] === player)) return line;
+          }
+          // diagonal ↙
+          if (c - k + 1 >= 0 && r + k <= rows) {
+            const line = Array.from({length: k}, (_, i) => (r + i) * cols + c - i);
+            if (line.every(i => board[i] === player)) return line;
+          }
+        }
+      }
+      return null;
+    }
+
+    /* ---- Scroll hint ---- */
+    function updateScrollHint() {
+      const gap = currentDiff === 'easy' ? 6 : currentDiff === 'medium' ? 4 : 3;
+      const boardW = cellPx * cols + gap * (cols - 1) + 12;
+      scrollHint.classList.toggle('hidden', boardW <= window.innerWidth - 32);
+    }
+
+    /* ---- UI helpers ---- */
+    function updateStatus() {
+      statusEl.textContent = `${nameOf(currentPlayer)}'s turn (${currentPlayer})`;
+    }
+
+    function updateScoreHighlight() {
+      scoreP1El.classList.toggle('active', currentPlayer === 'X');
+      scoreP2El.classList.toggle('active', currentPlayer === 'O');
+    }
+
+    function updateScore() {
+      document.getElementById('pts-p1').textContent   = scores.X;
+      document.getElementById('pts-p2').textContent   = scores.O;
+      document.getElementById('pts-draw').textContent = scores.draw;
+      updateScoreHighlight();
+    }
+
+    function showWin(player) {
+      winEmoji.textContent = player === 'X' ? '🎉' : '🏆';
+      winMsg.textContent   = `${nameOf(player)} wins!`;
+      statusEl.textContent = `${nameOf(player)} wins! 🎉`;
+      overlay.classList.remove('hidden');
+    }
+
+    function showDraw() {
+      winEmoji.textContent = '🤝';
+      winMsg.textContent   = "It's a draw!";
+      statusEl.textContent = "It's a draw! 🤝";
+      overlay.classList.remove('hidden');
+    }
+
+    /* ---- Button handlers ---- */
+    document.getElementById('btn-new').addEventListener('click', () => {
+      winLine = null;
+      startGame();
+    });
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      scores = { X: 0, O: 0, draw: 0 };
+      updateScore();
+      winLine = null;
+      startGame();
+    });
+    document.getElementById('btn-play-again').addEventListener('click', () => {
+      winLine = null;
+      startGame();
+    });
+
+    /* ---- Resize: recalculate sizes but keep difficulty ---- */
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        updateDiffLabels();
+        // Only re-render board layout, don't restart game
+        const dims = calcDims(currentDiff);
+        cellPx = dims.cellPx;
+        renderBoard();
+        updateScrollHint();
+      }, 120);
+    });
+
+    /* ---- Init ---- */
+    currentDiff = 'easy';
+    updateDiffLabels();
+    startGame();
+  </script>
+</body>
+</html>

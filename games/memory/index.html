@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Memory Match 🃏</title>
+  <link rel="stylesheet" href="../../css/styles.css" />
+  <style>
+    #mem-grid {
+      display: grid;
+      gap: 8px;
+      touch-action: manipulation;
+    }
+
+    .mem-card {
+      border-radius: 12px;
+      cursor: pointer;
+      position: relative;
+      perspective: 600px;
+      aspect-ratio: 1;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+
+    .mem-card-inner {
+      position: absolute;
+      inset: 0;
+      transform-style: preserve-3d;
+      transition: transform .4s ease;
+      border-radius: 12px;
+    }
+
+    .mem-card.flipped .mem-card-inner,
+    .mem-card.matched .mem-card-inner {
+      transform: rotateY(180deg);
+    }
+
+    .mem-face, .mem-back {
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+    }
+
+    .mem-back {
+      background: linear-gradient(135deg, var(--color-primary), #8b80f8);
+      font-size: 2rem;
+      color: rgba(255,255,255,.4);
+    }
+
+    .mem-face {
+      background: #fff;
+      box-shadow: var(--shadow);
+      transform: rotateY(180deg);
+    }
+
+    .mem-card.matched .mem-face {
+      background: #f0fff4;
+      box-shadow: 0 0 0 3px var(--color-accent);
+    }
+
+    .config-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <a class="back-link" href="../../">← Back</a>
+    <h1>🃏 Memory Match</h1>
+    <p>Flip cards to find matching pairs!</p>
+  </header>
+
+  <main>
+    <div class="game-wrapper">
+
+      <!-- Scoreboard (turns per player) -->
+      <div class="scoreboard">
+        <div class="score-box active" id="mem-score-p1">
+          <div class="player-label p1-label" id="mem-label-p1">Player 1</div>
+          <div class="player-score" id="mem-pts-p1">0</div>
+        </div>
+        <div class="score-box">
+          <div class="player-label" style="font-size:.7rem;">Pairs left</div>
+          <div class="player-score" id="mem-pairs-left">0</div>
+        </div>
+        <div class="score-box" id="mem-score-p2">
+          <div class="player-label p2-label" id="mem-label-p2">Player 2</div>
+          <div class="player-score" id="mem-pts-p2">0</div>
+        </div>
+      </div>
+
+      <!-- Names -->
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center;">
+        <input id="mem-name-p1" type="text" maxlength="12" placeholder="Player 1" value="Player 1"
+               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-primary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+        <input id="mem-name-p2" type="text" maxlength="12" placeholder="Player 2" value="Player 2"
+               style="font-size:1rem;font-weight:700;padding:8px 12px;border:2px solid var(--color-secondary);border-radius:10px;width:140px;min-height:44px;color:var(--color-text);" />
+      </div>
+
+      <!-- Config -->
+      <div class="config-grid">
+        <label>
+          Grid size
+          <select id="mem-size">
+            <option value="4x3">4 × 3 (Easy)</option>
+            <option value="4x4" selected>4 × 4 (Medium)</option>
+            <option value="5x4">5 × 4 (Hard)</option>
+            <option value="6x5">6 × 5 (Expert)</option>
+          </select>
+        </label>
+      </div>
+
+      <!-- Status -->
+      <div class="status-bar" id="mem-status">Player 1's turn</div>
+
+      <!-- Grid -->
+      <div id="mem-grid"></div>
+
+      <!-- Controls -->
+      <div class="controls">
+        <button class="btn btn-primary"   id="mem-btn-new">New Game</button>
+        <button class="btn btn-secondary" id="mem-btn-reset">Reset Scores</button>
+      </div>
+
+    </div>
+
+    <!-- Win overlay -->
+    <div class="win-overlay hidden" id="mem-overlay">
+      <div class="win-card">
+        <div class="big-emoji" id="mem-win-emoji">🎉</div>
+        <h2 id="mem-win-msg">Player 1 wins!</h2>
+        <p id="mem-win-sub" style="color:var(--color-muted);"></p>
+        <button class="btn btn-primary" id="mem-btn-again">Play Again</button>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Emoji pairs pool
+    const EMOJI_POOL = [
+      '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯',
+      '🦁','🐮','🐸','🐵','🐔','🐧','🐦','🦆','🦉','🦇',
+      '🐝','🐛','🦋','🐌','🐞','🐜','🦗','🕷','🦂','🦀',
+      '🍎','🍊','🍋','🍇','🍓','🍒','🍑','🥝','🍍','🥑',
+      '⭐','🌙','☀️','🌈','❄️','🔥','💧','🌸','🌺','🎈',
+    ];
+
+    let cols, rows, cards, flipped, matched, currentPlayer, scores, locked;
+    scores = { 1: 0, 2: 0 };
+
+    const gridEl    = document.getElementById('mem-grid');
+    const statusEl  = document.getElementById('mem-status');
+    const overlay   = document.getElementById('mem-overlay');
+    const winEmoji  = document.getElementById('mem-win-emoji');
+    const winMsg    = document.getElementById('mem-win-msg');
+    const winSub    = document.getElementById('mem-win-sub');
+    const nameP1El  = document.getElementById('mem-name-p1');
+    const nameP2El  = document.getElementById('mem-name-p2');
+    const labelP1El = document.getElementById('mem-label-p1');
+    const labelP2El = document.getElementById('mem-label-p2');
+    const scoreP1El = document.getElementById('mem-score-p1');
+    const scoreP2El = document.getElementById('mem-score-p2');
+    const sizeEl    = document.getElementById('mem-size');
+
+    function p1() { return nameP1El.value.trim() || 'Player 1'; }
+    function p2() { return nameP2El.value.trim() || 'Player 2'; }
+    function nameOf(p) { return p === 1 ? p1() : p2(); }
+
+    [nameP1El, nameP2El].forEach(el => el.addEventListener('input', () => {
+      labelP1El.textContent = p1();
+      labelP2El.textContent = p2();
+    }));
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function startGame() {
+      const [c, r] = sizeEl.value.split('x').map(Number);
+      cols = c; rows = r;
+      const pairs = (cols * rows) / 2;
+      const emojis = shuffle([...EMOJI_POOL]).slice(0, pairs);
+      cards = shuffle([...emojis, ...emojis].map((e, i) => ({ id: i, emoji: e, flipped: false, matched: false })));
+      flipped = [];
+      matched = 0;
+      locked = false;
+      currentPlayer = 1;
+      overlay.classList.add('hidden');
+      renderGrid();
+      updateStatus();
+      updateHighlight();
+      updatePairsLeft();
+    }
+
+    function cellSize() {
+      const vw = Math.min(window.innerWidth, 560);
+      return Math.floor((vw - 32 - (cols - 1) * 8) / cols);
+    }
+
+    function renderGrid() {
+      const cs = cellSize();
+      gridEl.style.gridTemplateColumns = `repeat(${cols}, ${cs}px)`;
+      gridEl.innerHTML = '';
+      cards.forEach((card, idx) => {
+        const el = document.createElement('div');
+        el.className = 'mem-card'
+          + (card.flipped ? ' flipped' : '')
+          + (card.matched ? ' matched' : '');
+        el.style.width  = cs + 'px';
+        el.style.height = cs + 'px';
+        el.innerHTML = `
+          <div class="mem-card-inner">
+            <div class="mem-back" style="font-size:${Math.floor(cs*.35)}px;">🎴</div>
+            <div class="mem-face"  style="font-size:${Math.floor(cs*.45)}px;">${card.emoji}</div>
+          </div>`;
+        if (!card.flipped && !card.matched) {
+          el.addEventListener('click', () => flipCard(idx));
+        }
+        gridEl.appendChild(el);
+      });
+    }
+
+    function flipCard(idx) {
+      if (locked || cards[idx].flipped || cards[idx].matched) return;
+      cards[idx].flipped = true;
+      flipped.push(idx);
+      renderGrid();
+
+      if (flipped.length === 2) {
+        locked = true;
+        const [a, b] = flipped;
+        if (cards[a].emoji === cards[b].emoji) {
+          // Match!
+          setTimeout(() => {
+            cards[a].matched = cards[b].matched = true;
+            cards[a].flipped = cards[b].flipped = false;
+            matched += 2;
+            scores[currentPlayer]++;
+            flipped = [];
+            locked = false;
+            renderGrid();
+            updateScore();
+            updatePairsLeft();
+            if (matched === cards.length) {
+              endGame();
+            }
+            // Same player goes again after a match
+            updateStatus();
+            updateHighlight();
+          }, 600);
+        } else {
+          // No match — flip back after delay
+          setTimeout(() => {
+            cards[a].flipped = cards[b].flipped = false;
+            flipped = [];
+            locked = false;
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            renderGrid();
+            updateStatus();
+            updateHighlight();
+          }, 1000);
+        }
+      }
+    }
+
+    function endGame() {
+      const s1 = scores[1], s2 = scores[2];
+      let winner;
+      if (s1 > s2) winner = 1;
+      else if (s2 > s1) winner = 2;
+      else winner = 0; // draw
+
+      if (winner === 0) {
+        winEmoji.textContent = '🤝';
+        winMsg.textContent   = "It's a tie!";
+        winSub.textContent   = `Both found ${s1} pairs each!`;
+      } else {
+        winEmoji.textContent = '🎉';
+        winMsg.textContent   = `${nameOf(winner)} wins!`;
+        winSub.textContent   = `${scores[winner]} pairs vs ${scores[winner === 1 ? 2 : 1]}`;
+      }
+      overlay.classList.remove('hidden');
+    }
+
+    function updateStatus() {
+      statusEl.textContent = `${nameOf(currentPlayer)}'s turn`;
+    }
+
+    function updateHighlight() {
+      scoreP1El.classList.toggle('active', currentPlayer === 1);
+      scoreP2El.classList.toggle('active', currentPlayer === 2);
+    }
+
+    function updateScore() {
+      document.getElementById('mem-pts-p1').textContent = scores[1];
+      document.getElementById('mem-pts-p2').textContent = scores[2];
+    }
+
+    function updatePairsLeft() {
+      const total  = cards.length / 2;
+      const found  = scores[1] + scores[2];
+      document.getElementById('mem-pairs-left').textContent = total - found;
+    }
+
+    document.getElementById('mem-btn-new').addEventListener('click', () => {
+      scores = { 1: 0, 2: 0 };
+      updateScore();
+      startGame();
+    });
+    document.getElementById('mem-btn-reset').addEventListener('click', () => {
+      scores = { 1: 0, 2: 0 };
+      updateScore();
+      startGame();
+    });
+    document.getElementById('mem-btn-again').addEventListener('click', () => {
+      scores = { 1: 0, 2: 0 };
+      updateScore();
+      startGame();
+    });
+    sizeEl.addEventListener('change', () => {
+      scores = { 1: 0, 2: 0 };
+      updateScore();
+      startGame();
+    });
+
+    window.addEventListener('resize', renderGrid);
+    startGame();
+  </script>
+</body>
+</html>
